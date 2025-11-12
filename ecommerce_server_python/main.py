@@ -9,15 +9,42 @@ handlers into an HTTP/SSE stack so you can run the server with uvicorn on port
 
 from __future__ import annotations
 
+import json
+import os
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import lru_cache
-import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List
+from urllib.parse import urlparse
 
 import mcp.types as types
+from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.fastmcp import FastMCP
+from mcp.shared.auth import ProtectedResourceMetadata
+from pydantic import AnyHttpUrl
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+
+
+class SimpleTokenVerifier(TokenVerifier):
+    """Development helper that blindly accepts any token."""
+
+    def __init__(self, required_scopes: Iterable[str]):
+        self.required_scopes: list[str] = list(required_scopes)
+
+    async def verify_token(
+        self, token: str
+    ) -> (
+        AccessToken | None
+    ):  # TODO: Do not use in production—replace with a real verifier.
+        return AccessToken(
+            token=token or "dev_token",
+            client_id="dev_client",
+            subject="dev",
+            scopes=self.required_scopes or [],
+            claims={"debug": True},
+        )
 
 
 @dataclass(frozen=True)
@@ -156,25 +183,82 @@ INCREMENT_TOOL_SCHEMA: Dict[str, Any] = {
     "additionalProperties": False,
 }
 
+DEFAULT_AUTH_SERVER_URL = "https://dev-65wmmp5d56ev40iy.us.auth0.com/"
+DEFAULT_RESOURCE_SERVER_URL = "http://localhost:8000/mcp"
+
+# Public URLs that describe this resource server plus the authorization server.
+AUTHORIZATION_SERVER_URL = AnyHttpUrl(
+    os.environ.get("AUTHORIZATION_SERVER_URL", DEFAULT_AUTH_SERVER_URL)
+)
+RESOURCE_SERVER_URL = "https://5fb2bf13c559.ngrok-free.app"
+RESOURCE_SCOPES = ["cart.write"]
+
+_parsed_resource_url = urlparse(str(RESOURCE_SERVER_URL))
+_resource_path = (
+    _parsed_resource_url.path if _parsed_resource_url.path not in ("", "/") else ""
+)
+PROTECTED_RESOURCE_METADATA_PATH = (
+    f"/.well-known/oauth-protected-resource{_resource_path}"
+)
+PROTECTED_RESOURCE_METADATA_URL = f"{_parsed_resource_url.scheme}://{_parsed_resource_url.netloc}{PROTECTED_RESOURCE_METADATA_PATH}"
+
+print("PROTECTED_RESOURCE_METADATA_URL", PROTECTED_RESOURCE_METADATA_URL)
+PROTECTED_RESOURCE_METADATA = ProtectedResourceMetadata(
+    resource=RESOURCE_SERVER_URL,
+    authorization_servers=[AUTHORIZATION_SERVER_URL],
+    scopes_supported=RESOURCE_SCOPES,
+)
+
+# Tool-level securitySchemes inform ChatGPT when OAuth is required for a call.
+PUBLIC_TOOL_SECURITY_SCHEMES = [{"type": "noauth"}]
+INCREMENT_TOOL_SECURITY_SCHEMES = [
+    {
+        "type": "oauth2",
+        "scopes": ["cart.write"],
+    }
+]
+
 
 mcp = FastMCP(
     name="pizzaz-python",
     stateless_http=True,
+    # # Token verifier for authentication
+    # token_verifier=SimpleTokenVerifier(required_scopes=["cart.write"]),
+    # # Auth settings for RFC 9728 Protected Resource Metadata
+    # auth=AuthSettings(
+    #     issuer_url=AnyHttpUrl("https://dev-65wmmp5d56ev40iy.us.auth0.com/"),  # Authorization Server URL
+    #     resource_server_url=AnyHttpUrl("https://5fb2bf13c559.ngrok-free.app"),  # This server's URL
+    #     required_scopes=["cart.write"],
+    # ),
 )
+
+
+@mcp.custom_route(PROTECTED_RESOURCE_METADATA_PATH, methods=["GET", "OPTIONS"])
+async def protected_resource_metadata(request: Request) -> Response:
+    """Expose RFC 9728 metadata so clients can find the Auth0 authorization server."""
+    if request.method == "OPTIONS":
+        return Response(status_code=204)
+    return JSONResponse(PROTECTED_RESOURCE_METADATA.model_dump(mode="json"))
 
 
 def _resource_description(widget: PizzazWidget) -> str:
     return f"{widget.title} widget markup"
 
 
-def _tool_meta(widget: PizzazWidget) -> Dict[str, Any]:
-    return {
+def _tool_meta(
+    widget: PizzazWidget,
+    security_schemes: List[Dict[str, Any]] | None = None,
+) -> Dict[str, Any]:
+    meta = {
         "openai/outputTemplate": widget.template_uri,
         "openai/toolInvocation/invoking": widget.invoking,
         "openai/toolInvocation/invoked": widget.invoked,
         "openai/widgetAccessible": True,
         "openai/resultCanProduceWidget": True,
     }
+    if security_schemes is not None:
+        meta["securitySchemes"] = deepcopy(security_schemes)
+    return meta
 
 
 def _tool_invocation_meta(widget: PizzazWidget) -> Dict[str, Any]:
@@ -184,15 +268,124 @@ def _tool_invocation_meta(widget: PizzazWidget) -> Dict[str, Any]:
     }
 
 
+def _resource_metadata_url() -> str | None:
+    auth_config = getattr(mcp.settings, "auth", None)
+    if auth_config and auth_config.resource_server_url:
+        parsed = urlparse(str(auth_config.resource_server_url))
+        resource_path = parsed.path if parsed.path not in ("", "/") else ""
+        return f"{parsed.scheme}://{parsed.netloc}/.well-known/oauth-protected-resource{resource_path}"
+    print("PROTECTED_RESOURCE_METADATA_URL", PROTECTED_RESOURCE_METADATA_URL)
+    return PROTECTED_RESOURCE_METADATA_URL
+
+
+def _build_www_authenticate_value(error: str, description: str) -> str:
+    safe_error = error.replace('"', r"\"")
+    safe_description = description.replace('"', r"\"")
+    parts = [
+        f'error="{safe_error}"',
+        f'error_description="{safe_description}"',
+    ]
+    resource_metadata = _resource_metadata_url()
+    if resource_metadata:
+        parts.append(f'resource_metadata="{resource_metadata}"')
+    return f"Bearer {', '.join(parts)}"
+
+
+def _oauth_error_result(
+    user_message: str,
+    *,
+    error: str = "invalid_request",
+    description: str | None = None,
+) -> types.ServerResult:
+    description_text = description or user_message
+    return types.ServerResult(
+        types.CallToolResult(
+            content=[
+                types.TextContent(
+                    type="text",
+                    text=user_message,
+                )
+            ],
+            _meta={
+                "mcp/www_authenticate": [
+                    _build_www_authenticate_value(error, description_text)
+                ]
+            },
+            isError=True,
+        )
+    )
+
+
+def _get_bearer_token_from_request() -> str | None:
+    try:
+        request_context = mcp._mcp_server.request_context
+    except LookupError:
+        return None
+
+    request = getattr(request_context, "request", None)
+    if request is None:
+        return None
+
+    header_value: Any = None
+    headers = getattr(request, "headers", None)
+    if headers is not None:
+        try:
+            header_value = headers.get("authorization")
+            if header_value is None:
+                header_value = headers.get("Authorization")
+        except Exception:
+            header_value = None
+
+    if header_value is None:
+        # Attempt to read from ASGI scope headers if available
+        scope = getattr(request, "scope", None)
+        scope_headers = scope.get("headers") if isinstance(scope, dict) else None
+        if scope_headers:
+            for key, value in scope_headers:
+                decoded_key = (
+                    key.decode("latin-1")
+                    if isinstance(key, (bytes, bytearray))
+                    else str(key)
+                ).lower()
+                if decoded_key == "authorization":
+                    header_value = (
+                        value.decode("latin-1")
+                        if isinstance(value, (bytes, bytearray))
+                        else str(value)
+                    )
+                    break
+
+    if header_value is None and isinstance(request, dict):
+        # Fall back to dictionary-like request contexts
+        raw_value = request.get("authorization") or request.get("Authorization")
+        header_value = raw_value
+
+    if header_value is None:
+        return None
+
+    if isinstance(header_value, (bytes, bytearray)):
+        header_value = header_value.decode("latin-1")
+
+    header_value = header_value.strip()
+    if not header_value.lower().startswith("bearer "):
+        return None
+
+    token = header_value[7:].strip()
+    return token or None
+
+
 @mcp._mcp_server.list_tools()
 async def _list_tools() -> List[types.Tool]:
+    public_tool_meta = _tool_meta(ECOMMERCE_WIDGET, PUBLIC_TOOL_SECURITY_SCHEMES)
+    increment_tool_meta = _tool_meta(ECOMMERCE_WIDGET, INCREMENT_TOOL_SECURITY_SCHEMES)
     return [
         types.Tool(
             name=SEARCH_TOOL_NAME,
             title=ECOMMERCE_WIDGET.title,
             description="Search the ecommerce catalog using free-text keywords.",
             inputSchema=SEARCH_TOOL_SCHEMA,
-            _meta=_tool_meta(ECOMMERCE_WIDGET),
+            _meta=public_tool_meta,
+            securitySchemes=list(PUBLIC_TOOL_SECURITY_SCHEMES),
             # To disable the approval prompt for the tools
             annotations={
                 "destructiveHint": False,
@@ -205,7 +398,8 @@ async def _list_tools() -> List[types.Tool]:
             title="Increment Cart Item",
             description="Increase the quantity of an item already in the cart.",
             inputSchema=INCREMENT_TOOL_SCHEMA,
-            _meta=_tool_meta(ECOMMERCE_WIDGET),
+            _meta=increment_tool_meta,
+            securitySchemes=list(INCREMENT_TOOL_SECURITY_SCHEMES),
             # To disable the approval prompt for the tools
             annotations={
                 "destructiveHint": False,
@@ -300,6 +494,11 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
         }
         response_text = ECOMMERCE_WIDGET.response_text
     else:
+        if not _get_bearer_token_from_request():
+            return _oauth_error_result(
+                "Authentication required: no access token provided.",
+                description="No access token was provided",
+            )
         product_id = str(arguments.get("productId", "")).strip()
         if not product_id:
             return types.ServerResult(
