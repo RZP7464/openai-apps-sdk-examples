@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: pizzaz-mcp-server
+    env: node
+    buildCommand: pnpm install && pnpm build
+    startCommand: cd pizzaz_server_node && pnpm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8000
+
