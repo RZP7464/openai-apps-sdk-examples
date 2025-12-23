@@ -147,16 +147,16 @@ widgets.forEach((widget) => {
 });
 
 const toolInputSchema = {
-  type: "object",
+  type: "object" as const,
   properties: {
     pizzaTopping: {
-      type: "string",
+      type: "string" as const,
       description: "Topping to mention when rendering the widget.",
     },
   },
   required: ["pizzaTopping"],
-  additionalProperties: false,
-} as const;
+  additionalProperties: false as const,
+};
 
 const toolInputParser = z.object({
   pizzaTopping: z.string(),
@@ -165,7 +165,10 @@ const toolInputParser = z.object({
 const tools: Tool[] = widgets.map((widget) => ({
   name: widget.id,
   description: widget.title,
-  inputSchema: toolInputSchema,
+  inputSchema: {
+    ...toolInputSchema,
+    required: [...toolInputSchema.required],
+  },
   title: widget.title,
   _meta: widgetDescriptorMeta(widget),
   // To disable the approval prompt for the widgets

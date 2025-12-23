@@ -6,7 +6,9 @@
   "description": "Example MCP server that exposes the Pizzaz demo tools using the official TypeScript SDK.",
   "scripts": {
     "build": "cd ../.. && pnpm install && pnpm build",
-    "start": "tsx src/server.ts"
+    "build:ts": "tsc",
+    "start": "node src/server.js",
+    "start:dev": "tsx src/server.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.1",
