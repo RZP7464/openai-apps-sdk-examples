@@ -101,7 +101,7 @@ All of the MCP servers expect the bundled HTML, JS, and CSS to be served from th
 pnpm run serve
 ```
 
-The assets are exposed at [`https://openai-apps-sdk-examples-3.onrender.com`](https://openai-apps-sdk-examples-3.onrender.com) with CORS enabled so that local tooling (including MCP inspectors) can fetch them.
+The assets are exposed at [`https://openai-apps-sdk-examples-1-50lg.onrender.com`](https://openai-apps-sdk-examples-1-50lg.onrender.com) with CORS enabled so that local tooling (including MCP inspectors) can fetch them.
 
 > **Note:** The Python Pizzaz server caches widget HTML with `functools.lru_cache`. If you rebuild or manually edit files in `assets/`, restart the MCP server so it picks up the updated markup.
 

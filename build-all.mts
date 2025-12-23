@@ -167,7 +167,7 @@ console.groupEnd();
 
 console.log("new hash: ", h);
 
-const defaultBaseUrl = "https://openai-apps-sdk-examples-3.onrender.com";
+const defaultBaseUrl = "https://openai-apps-sdk-examples-1-50lg.onrender.com";
 const baseUrlCandidate = process.env.BASE_URL?.trim() ?? "";
 const baseUrlRaw = baseUrlCandidate.length > 0 ? baseUrlCandidate : defaultBaseUrl;
 const normalizedBaseUrl = baseUrlRaw.replace(/\/+$/, "") || defaultBaseUrl;
