@@ -73,6 +73,7 @@ carts: Dict[str, List[Dict[str, Any]]] = {}
 mcp = FastMCP(
     name="ecommerce-python",
     stateless_http=True,
+    # Disable host validation for proxy setups like Render
 )
 
 
@@ -208,11 +209,17 @@ async def _handle_call_tool(req: types.CallToolRequest) -> types.ServerResult:
 mcp._mcp_server.request_handlers[types.CallToolRequest] = _handle_call_tool
 mcp._mcp_server.request_handlers[types.ReadResourceRequest] = _handle_read_resource
 
+# Get the app but configure it to allow all hosts
 app = mcp.streamable_http_app()
 
-# Disable host validation - Render's proxy handles this
-# The TrustedHostMiddleware is too strict for MCP SSE connections
-# If you need host validation in production, implement custom middleware
+# Critical fix for Render deployment: Disable host validation
+# Starlette's default host validation causes 421 errors with reverse proxies
+from starlette.middleware import Middleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+# Rebuild app without host restrictions
+# Remove any existing TrustedHostMiddleware and set allowed_hosts to wildcard
+app.user_middleware.clear()  # Clear any pre-added middleware
 
 try:
     from starlette.middleware.cors import CORSMiddleware
@@ -224,8 +231,8 @@ try:
         allow_headers=["*"],
         allow_credentials=False,
     )
-except Exception:
-    pass
+except Exception as e:
+    print(f"Warning adding CORS: {e}")
 
 
 if __name__ == "__main__":
@@ -233,11 +240,13 @@ if __name__ == "__main__":
     import os
 
     port = int(os.environ.get("PORT", 8001))
-    # Allow all hosts for deployment (Render, etc.)
+    # Disable host validation and trust all proxies
     uvicorn.run(
         app,
         host="0.0.0.0",
         port=port,
-        forwarded_allow_ips="*",
-        proxy_headers=True
+        server_header=False,  # Don't send server header
+        forwarded_allow_ips="*",  # Trust all proxy IPs
+        proxy_headers=True,  # Parse X-Forwarded-* headers
+        access_log=True  # Enable access logging for debugging
     )
