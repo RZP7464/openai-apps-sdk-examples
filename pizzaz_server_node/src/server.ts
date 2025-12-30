@@ -359,7 +359,16 @@ const httpServer = createServer(
       return;
     }
 
-    const url = new URL(req.url, `http://${req.headers.host ?? "localhost"}`);
+    // Handle host header more robustly for deployment platforms
+    const host = req.headers.host || "localhost";
+    let url: URL;
+    try {
+      url = new URL(req.url, `http://${host}`);
+    } catch (error) {
+      console.error("Invalid URL", error);
+      res.writeHead(400).end("Invalid URL");
+      return;
+    }
 
     if (
       req.method === "OPTIONS" &&

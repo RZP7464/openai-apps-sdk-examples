@@ -210,6 +210,17 @@ mcp._mcp_server.request_handlers[types.ReadResourceRequest] = _handle_read_resou
 
 app = mcp.streamable_http_app()
 
+# Add trusted hosts middleware for deployment platforms like Render
+try:
+    from starlette.middleware.trustedhost import TrustedHostMiddleware
+    
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["*"]  # Allow all hosts - for production, specify your domain
+    )
+except Exception:
+    pass
+
 try:
     from starlette.middleware.cors import CORSMiddleware
 
@@ -229,4 +240,11 @@ if __name__ == "__main__":
     import os
 
     port = int(os.environ.get("PORT", 8001))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # Allow all hosts for deployment (Render, etc.)
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=port,
+        forwarded_allow_ips="*",
+        proxy_headers=True
+    )
