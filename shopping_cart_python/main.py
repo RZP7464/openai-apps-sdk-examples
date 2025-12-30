@@ -73,7 +73,6 @@ carts: Dict[str, List[Dict[str, Any]]] = {}
 mcp = FastMCP(
     name="ecommerce-python",
     stateless_http=True,
-    # Disable host validation for proxy setups like Render
 )
 
 
@@ -209,29 +208,39 @@ async def _handle_call_tool(req: types.CallToolRequest) -> types.ServerResult:
 mcp._mcp_server.request_handlers[types.CallToolRequest] = _handle_call_tool
 mcp._mcp_server.request_handlers[types.ReadResourceRequest] = _handle_read_resource
 
-# Get the base app
+# Create the base app
 base_app = mcp.streamable_http_app()
 
-# Wrap the app to bypass host validation at the ASGI level
-class BypassHostValidation:
-    """ASGI middleware to bypass host validation causing 421 errors."""
-    
+# CRITICAL FIX: Wrap app to intercept and normalize Host header
+# This prevents 421 Misdirected Request errors from Render's proxy
+class HostHeaderNormalizer:
+    """
+    ASGI middleware that normalizes the Host header to 'localhost'
+    before passing to the app. This bypasses Starlette's host validation.
+    """
     def __init__(self, app):
         self.app = app
     
     async def __call__(self, scope, receive, send):
-        # For HTTP requests, ensure we don't trigger host validation
-        if scope["type"] == "http":
-            # Don't modify scope, just pass through
-            # The key is that we intercept before Starlette's host validation
-            pass
+        if scope["type"] in ("http", "websocket"):
+            # Replace Host header with localhost to bypass validation
+            headers = list(scope.get("headers", []))
+            new_headers = []
+            
+            for name, value in headers:
+                if name.lower() == b"host":
+                    # Replace with localhost
+                    new_headers.append((b"host", b"localhost:8001"))
+                else:
+                    new_headers.append((name, value))
+            
+            scope["headers"] = new_headers
         
         await self.app(scope, receive, send)
 
 # Wrap the app
-app = BypassHostValidation(base_app)
+app = HostHeaderNormalizer(base_app)
 
-# Add CORS to the base app (before wrapping)
 try:
     from starlette.middleware.cors import CORSMiddleware
     
