@@ -182,7 +182,7 @@ for (const name of builtNames) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' ${normalizedBaseUrl} https://cdn.dummyjson.com; style-src 'self' 'unsafe-inline' ${normalizedBaseUrl}; img-src 'self' data: https: ${normalizedBaseUrl} https://cdn.dummyjson.com https://persistent.oaistatic.com; font-src 'self' data: ${normalizedBaseUrl}; connect-src 'self' ${normalizedBaseUrl} https://dummyjson.com https://cdn.dummyjson.com; frame-ancestors 'self' https://chatgpt.com https://*.chatgpt.com;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' ${normalizedBaseUrl} https: blob:; style-src 'self' 'unsafe-inline' ${normalizedBaseUrl} https:; img-src 'self' data: blob: https: ${normalizedBaseUrl}; font-src 'self' data: ${normalizedBaseUrl} https:; connect-src 'self' ${normalizedBaseUrl} https: wss: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-ancestors 'self' https://chatgpt.com https://*.chatgpt.com;">
   <meta name="widget-domain" content="${normalizedBaseUrl}">
   <script type="module" src="${normalizedBaseUrl}/${name}-${h}.js"></script>
   <link rel="stylesheet" href="${normalizedBaseUrl}/${name}-${h}.css">
