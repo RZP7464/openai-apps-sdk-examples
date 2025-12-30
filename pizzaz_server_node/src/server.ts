@@ -168,6 +168,8 @@ const tools: Tool[] = widgets.map((widget) => ({
   inputSchema: toolInputSchema,
   title: widget.title,
   _meta: widgetDescriptorMeta(widget),
+  // ChatGPT requires securitySchemes to show tools as public
+  securitySchemes: [{ type: "noauth" }],
   // To disable the approval prompt for the widgets
   annotations: {
     destructiveHint: false,
@@ -380,6 +382,43 @@ const httpServer = createServer(
     if (req.method === "POST" && url.pathname === postPath) {
       await handlePostMessage(req, res, url);
       return;
+    }
+
+    // Serve static assets from the assets directory
+    if (req.method === "GET" && url.pathname.startsWith("/")) {
+      const fileName = url.pathname.slice(1); // Remove leading slash
+      const filePath = path.join(ASSETS_DIR, fileName);
+
+      // Only serve files from the assets directory with allowed extensions
+      if (
+        filePath.startsWith(ASSETS_DIR) &&
+        (fileName.endsWith(".js") ||
+          fileName.endsWith(".css") ||
+          fileName.endsWith(".html") ||
+          fileName.endsWith(".map"))
+      ) {
+        try {
+          const content = fs.readFileSync(filePath);
+          const contentType = fileName.endsWith(".js")
+            ? "application/javascript"
+            : fileName.endsWith(".css")
+            ? "text/css"
+            : fileName.endsWith(".html")
+            ? "text/html"
+            : fileName.endsWith(".map")
+            ? "application/json"
+            : "application/octet-stream";
+
+          res.writeHead(200, {
+            "Content-Type": contentType,
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(content);
+          return;
+        } catch (error) {
+          // File not found, fall through to 404
+        }
+      }
     }
 
     res.writeHead(404).end("Not Found");
