@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { PlusCircle, Star } from "lucide-react";
+import { PlusCircle, Star, ShoppingCart } from "lucide-react";
 import { Button } from "@openai/apps-sdk-ui/components/Button";
 import { Image } from "@openai/apps-sdk-ui/components/Image";
 
 function App() {
   const [products, setProducts] = useState([]);
+  const [cart, setCart] = useState([]);
   const [query, setQuery] = useState("phone");
   const [skip, setSkip] = useState(0);
   const [total, setTotal] = useState(0);
@@ -16,6 +17,10 @@ function App() {
     const toolOutput = window.openai?.toolOutput || {};
     if (toolOutput.query) setQuery(toolOutput.query);
     if (toolOutput.skip !== undefined) setSkip(toolOutput.skip);
+    
+    // Load cart from widget state (persisted across conversation turns)
+    const savedCart = window.openai?.widgetState?.cart || [];
+    setCart(savedCart);
   }, []);
 
   useEffect(() => {
@@ -28,14 +33,25 @@ function App() {
   }, [query, skip]);
 
   const handleAddToCart = (product) => {
-    console.log("Add to cart:", product);
-    // Store in widget state for future use
-    const currentCart = window.openai?.widgetState?.cart || [];
+    const newCart = [...cart, { 
+      id: product.id, 
+      title: product.title, 
+      price: product.price,
+      thumbnail: product.thumbnail,
+      quantity: 1
+    }];
+    setCart(newCart);
+    
+    // Store in widget state with session ID
     window.openai.widgetState = {
       ...window.openai.widgetState,
-      cart: [...currentCart, { id: product.id, title: product.title, price: product.price }]
+      cart: newCart,
+      sessionId: window.openai.widgetSessionId || Date.now().toString()
     };
   };
+
+  const getTotalItems = () => cart.length;
+  const getTotalPrice = () => cart.reduce((sum, item) => sum + item.price, 0).toFixed(2);
 
   return (
     <div className="antialiased w-full text-black px-4 pb-2 border border-black/10 rounded-2xl sm:rounded-3xl overflow-hidden bg-white">
@@ -48,7 +64,7 @@ function App() {
                 "url(https://persistent.oaistatic.com/pizzaz/title.png)",
             }}
           ></div>
-          <div>
+          <div className="flex-1">
             <div className="text-base sm:text-xl font-medium">
               Product Search Results
             </div>
@@ -56,6 +72,12 @@ function App() {
               {total} products found for "{query}"
             </div>
           </div>
+          {cart.length > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <ShoppingCart className="h-4 w-4" />
+              <span className="font-medium">{getTotalItems()} items</span>
+            </div>
+          )}
         </div>
         <div className="min-w-full text-sm flex flex-col">
           {products.map((product, i) => (
@@ -89,7 +111,7 @@ function App() {
                           />
                           <span>{product.rating?.toFixed(1)}</span>
                         </div>
-                        <div className="whitespace-nowrap">
+                        <div className="whitespace-nowrap font-medium">
                           ${product.price}
                         </div>
                       </div>
@@ -120,31 +142,53 @@ function App() {
             </div>
           )}
         </div>
-        {total > limit && (
-          <div className="flex gap-2 pt-2">
-            <Button 
-              color="secondary" 
-              variant="outline" 
-              size="sm"
-              disabled={skip === 0}
-              onClick={() => setSkip(Math.max(0, skip - limit))}
-            >
-              Previous
-            </Button>
-            <Button 
-              color="secondary" 
-              variant="outline" 
-              size="sm"
-              disabled={skip + limit >= total}
-              onClick={() => setSkip(skip + limit)}
-            >
-              Next
-            </Button>
-            <span className="text-sm text-black/60 self-center ml-2">
-              {skip + 1}-{Math.min(skip + limit, total)} of {total}
-            </span>
-          </div>
-        )}
+        <div className="flex flex-col gap-2 pt-2">
+          {total > limit && (
+            <div className="flex gap-2">
+              <Button 
+                color="secondary" 
+                variant="outline" 
+                size="sm"
+                disabled={skip === 0}
+                onClick={() => setSkip(Math.max(0, skip - limit))}
+              >
+                Previous
+              </Button>
+              <Button 
+                color="secondary" 
+                variant="outline" 
+                size="sm"
+                disabled={skip + limit >= total}
+                onClick={() => setSkip(skip + limit)}
+              >
+                Next
+              </Button>
+              <span className="text-sm text-black/60 self-center ml-2">
+                {skip + 1}-{Math.min(skip + limit, total)} of {total}
+              </span>
+            </div>
+          )}
+          {cart.length > 0 && (
+            <div className="pt-2 border-t border-black/5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Cart Summary</span>
+                <span className="text-sm font-medium">${getTotalPrice()}</span>
+              </div>
+              <Button 
+                color="primary" 
+                variant="solid" 
+                size="md" 
+                block
+                onClick={() => {
+                  alert(`Cart Total: $${getTotalPrice()}\nItems: ${getTotalItems()}\n\nAsk me to "checkout" to proceed!`);
+                }}
+              >
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                View Cart ({getTotalItems()} items)
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
