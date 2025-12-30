@@ -119,13 +119,13 @@ const widgets: PizzazWidget[] = [
     responseText: "Rendered a pizza album!",
   },
   {
-    id: "pizza-list",
-    title: "Show Pizza List",
+    id: "product-search",
+    title: "Search Products",
     templateUri: "ui://widget/pizza-list.html",
-    invoking: "Hand-tossing a list",
-    invoked: "Served a fresh list",
+    invoking: "Searching products",
+    invoked: "Products found",
     html: readWidgetHtml("pizzaz-list"),
-    responseText: "Rendered a pizza list!",
+    responseText: "Product search results displayed!",
   },
   {
     id: "pizza-shop",
@@ -149,17 +149,23 @@ widgets.forEach((widget) => {
 const toolInputSchema = {
   type: "object",
   properties: {
-    pizzaTopping: {
+    query: {
       type: "string",
-      description: "Topping to mention when rendering the widget.",
+      description: "Search query for products (e.g., 'phone', 'laptop')",
+    },
+    skip: {
+      type: "number",
+      description: "Number of results to skip for pagination (default: 0)",
+      default: 0,
     },
   },
-  required: ["pizzaTopping"],
+  required: ["query"],
   additionalProperties: false,
 } as const;
 
 const toolInputParser = z.object({
-  pizzaTopping: z.string(),
+  query: z.string(),
+  skip: z.number().optional().default(0),
 });
 
 const tools: Tool[] = widgets.map((widget) => ({
@@ -270,7 +276,8 @@ function createPizzazServer(): Server {
           },
         ],
         structuredContent: {
-          pizzaTopping: args.pizzaTopping,
+          query: args.query,
+          skip: args.skip || 0,
         },
         _meta: widgetInvocationMeta(widget),
       };
