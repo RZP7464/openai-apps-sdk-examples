@@ -210,16 +210,9 @@ mcp._mcp_server.request_handlers[types.ReadResourceRequest] = _handle_read_resou
 
 app = mcp.streamable_http_app()
 
-# Add trusted hosts middleware for deployment platforms like Render
-try:
-    from starlette.middleware.trustedhost import TrustedHostMiddleware
-    
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=["*"]  # Allow all hosts - for production, specify your domain
-    )
-except Exception:
-    pass
+# Disable host validation - Render's proxy handles this
+# The TrustedHostMiddleware is too strict for MCP SSE connections
+# If you need host validation in production, implement custom middleware
 
 try:
     from starlette.middleware.cors import CORSMiddleware
