@@ -10,7 +10,7 @@ function App() {
   const [query, setQuery] = useState("phone");
   const [skip, setSkip] = useState(0);
   const [total, setTotal] = useState(0);
-  const limit = 10;
+  const limit = 100;
 
   useEffect(() => {
     // Get search parameters from tool output
@@ -174,18 +174,21 @@ function App() {
                 <span className="text-sm font-medium">Cart Summary</span>
                 <span className="text-sm font-medium">${getTotalPrice()}</span>
               </div>
-              <Button 
-                color="primary" 
-                variant="solid" 
-                size="md" 
-                block
-                onClick={() => {
-                  alert(`Cart Total: $${getTotalPrice()}\nItems: ${getTotalItems()}\n\nAsk me to "checkout" to proceed!`);
-                }}
+              <a 
+                href={`https://pages.razorpay.com/pl_QSiWE4HOKMKQHh/view?amount=${getTotalPrice()}`}
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                View Cart ({getTotalItems()} items)
-              </Button>
+                <Button 
+                  color="primary" 
+                  variant="solid" 
+                  size="md" 
+                  block
+                >
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  Pay Now ({getTotalItems()} items)
+                </Button>
+              </a>
             </div>
           )}
         </div>
