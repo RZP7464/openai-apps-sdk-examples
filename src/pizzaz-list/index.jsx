@@ -11,6 +11,10 @@ function App() {
   const [skip, setSkip] = useState(0);
   const [total, setTotal] = useState(0);
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userId, setUserId] = useState(null);
+  const [loginError, setLoginError] = useState("");
+  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [address, setAddress] = useState({
     name: "",
     phone: "",
@@ -20,15 +24,31 @@ function App() {
   });
   const limit = 100;
 
+  // Hardcoded demo credentials
+  const DEMO_USERNAME = "Demo User";
+  const DEMO_PASSWORD = "demo";
+  const DEMO_USER_ID = "3e974d44-b8f0-4fe6-b3e7-f69ac5e9eb71";
+
   useEffect(() => {
     // Get search parameters from tool output
     const toolOutput = window.openai?.toolOutput || {};
     if (toolOutput.query) setQuery(toolOutput.query);
     if (toolOutput.skip !== undefined) setSkip(toolOutput.skip);
     
-    // Load cart from widget state (persisted across conversation turns)
-    const savedCart = window.openai?.widgetState?.cart || [];
+    // Load cart and user state from widget state
+    const widgetState = window.openai?.widgetState || {};
+    const savedCart = widgetState.cart || [];
+    const savedUserId = widgetState.userId;
+    const savedAddress = widgetState.addresses?.[savedUserId];
+    
     setCart(savedCart);
+    if (savedUserId) {
+      setIsLoggedIn(true);
+      setUserId(savedUserId);
+      if (savedAddress) {
+        setAddress(savedAddress);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -86,8 +106,100 @@ function App() {
   };
 
   const handleAddressChange = (field, value) => {
-    setAddress(prev => ({ ...prev, [field]: value }));
+    const updatedAddress = { ...address, [field]: value };
+    setAddress(updatedAddress);
+    
+    // Save address to widget state with user ID
+    if (userId) {
+      const widgetState = window.openai?.widgetState || {};
+      const addresses = widgetState.addresses || {};
+      addresses[userId] = updatedAddress;
+      
+      window.openai.widgetState = {
+        ...widgetState,
+        addresses
+      };
+    }
   };
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    setLoginError("");
+    
+    if (loginForm.username === DEMO_USERNAME && loginForm.password === DEMO_PASSWORD) {
+      setIsLoggedIn(true);
+      setUserId(DEMO_USER_ID);
+      
+      // Store user ID in widget state
+      window.openai.widgetState = {
+        ...window.openai.widgetState,
+        userId: DEMO_USER_ID
+      };
+    } else {
+      setLoginError("Invalid username or password");
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUserId(null);
+    setShowAddressForm(false);
+    
+    // Clear user ID from widget state but keep cart
+    const widgetState = window.openai?.widgetState || {};
+    delete widgetState.userId;
+    window.openai.widgetState = widgetState;
+  };
+
+  // Login page
+  if (!isLoggedIn) {
+    return (
+      <div className="antialiased w-full text-black px-4 pb-4 border border-black/10 rounded-2xl sm:rounded-3xl overflow-hidden bg-white">
+        <div className="max-w-md mx-auto">
+          <div className="flex flex-col items-center gap-2 border-b border-black/5 py-6">
+            <ShoppingCart className="h-12 w-12 text-blue-600" strokeWidth={1.5} />
+            <div className="text-xl sm:text-2xl font-semibold">Welcome to Product Search</div>
+            <div className="text-sm text-black/60">Please login to continue</div>
+          </div>
+          <form onSubmit={handleLogin} className="py-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Username</label>
+              <input
+                type="text"
+                value={loginForm.username}
+                onChange={(e) => setLoginForm(prev => ({ ...prev, username: e.target.value }))}
+                className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Demo User"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Password</label>
+              <input
+                type="password"
+                value={loginForm.password}
+                onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
+                className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="••••"
+                required
+              />
+            </div>
+            {loginError && (
+              <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+                {loginError}
+              </div>
+            )}
+            <Button color="primary" variant="solid" size="md" block type="submit">
+              Login
+            </Button>
+            <div className="text-xs text-center text-black/40 pt-2">
+              Demo credentials: Username: "Demo User", Password: "demo"
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (showAddressForm) {
     return (
@@ -213,6 +325,14 @@ function App() {
               <span className="font-medium">{getTotalItems()} items</span>
             </div>
           )}
+          <Button 
+            color="secondary" 
+            variant="ghost" 
+            size="sm"
+            onClick={handleLogout}
+          >
+            Logout
+          </Button>
         </div>
         <div className="min-w-full text-sm flex flex-col">
           {products.map((product, i) => (
