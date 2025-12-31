@@ -10,6 +10,14 @@ function App() {
   const [query, setQuery] = useState("phone");
   const [skip, setSkip] = useState(0);
   const [total, setTotal] = useState(0);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [address, setAddress] = useState({
+    name: "",
+    phone: "",
+    street: "",
+    city: "",
+    zip: ""
+  });
   const limit = 100;
 
   useEffect(() => {
@@ -52,6 +60,113 @@ function App() {
 
   const getTotalItems = () => cart.length;
   const getTotalPrice = () => cart.reduce((sum, item) => sum + item.price, 0).toFixed(2);
+  
+  const isAddressComplete = () => {
+    return address.name && address.phone && address.street && address.city && address.zip;
+  };
+
+  const handleAddressChange = (field, value) => {
+    setAddress(prev => ({ ...prev, [field]: value }));
+  };
+
+  if (showAddressForm) {
+    return (
+      <div className="antialiased w-full text-black px-4 pb-4 border border-black/10 rounded-2xl sm:rounded-3xl overflow-hidden bg-white">
+        <div className="max-w-full">
+          <div className="flex flex-row items-center gap-4 border-b border-black/5 py-4">
+            <div className="flex-1">
+              <div className="text-base sm:text-xl font-medium">Delivery Address</div>
+              <div className="text-sm text-black/60">Enter your delivery details</div>
+            </div>
+            <Button 
+              color="secondary" 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setShowAddressForm(false)}
+            >
+              Back
+            </Button>
+          </div>
+          <div className="py-4 space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Full Name</label>
+              <input
+                type="text"
+                value={address.name}
+                onChange={(e) => handleAddressChange('name', e.target.value)}
+                className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="John Doe"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Phone Number</label>
+              <input
+                type="tel"
+                value={address.phone}
+                onChange={(e) => handleAddressChange('phone', e.target.value)}
+                className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="+1 234 567 8900"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Street Address</label>
+              <input
+                type="text"
+                value={address.street}
+                onChange={(e) => handleAddressChange('street', e.target.value)}
+                className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="123 Main Street"
+              />
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1">City</label>
+                <input
+                  type="text"
+                  value={address.city}
+                  onChange={(e) => handleAddressChange('city', e.target.value)}
+                  className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="New York"
+                />
+              </div>
+              <div className="w-32">
+                <label className="block text-sm font-medium mb-1">ZIP Code</label>
+                <input
+                  type="text"
+                  value={address.zip}
+                  onChange={(e) => handleAddressChange('zip', e.target.value)}
+                  className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="10001"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-black/5 pt-3">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium">Order Total</span>
+              <span className="text-lg font-bold">${getTotalPrice()}</span>
+            </div>
+            {isAddressComplete() ? (
+              <a 
+                href={`https://pages.razorpay.com/pl_QSiWE4HOKMKQHh/view?amount=${getTotalPrice()}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button color="primary" variant="solid" size="md" block>
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  Proceed to Payment
+                </Button>
+              </a>
+            ) : (
+              <Button color="primary" variant="solid" size="md" block disabled>
+                Please complete all fields
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="antialiased w-full text-black px-4 pb-2 border border-black/10 rounded-2xl sm:rounded-3xl overflow-hidden bg-white">
@@ -174,21 +289,16 @@ function App() {
                 <span className="text-sm font-medium">Cart Summary</span>
                 <span className="text-sm font-medium">${getTotalPrice()}</span>
               </div>
-              <a 
-                href={`https://pages.razorpay.com/pl_QSiWE4HOKMKQHh/view?amount=${getTotalPrice()}`}
-                target="_blank"
-                rel="noopener noreferrer"
+              <Button 
+                color="primary" 
+                variant="solid" 
+                size="md" 
+                block
+                onClick={() => setShowAddressForm(true)}
               >
-                <Button 
-                  color="primary" 
-                  variant="solid" 
-                  size="md" 
-                  block
-                >
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Pay Now ({getTotalItems()} items)
-                </Button>
-              </a>
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Proceed to Checkout ({getTotalItems()} items)
+              </Button>
             </div>
           )}
         </div>
