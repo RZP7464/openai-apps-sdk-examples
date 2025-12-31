@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { PlusCircle, MinusCircle, Star, ShoppingCart } from "lucide-react";
+import { PlusCircle, MinusCircle, Star, ShoppingCart, Search } from "lucide-react";
 import { Button } from "@openai/apps-sdk-ui/components/Button";
 import { Image } from "@openai/apps-sdk-ui/components/Image";
 
@@ -8,6 +8,7 @@ function App() {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [query, setQuery] = useState("phone");
+  const [searchInput, setSearchInput] = useState("phone");
   const [skip, setSkip] = useState(0);
   const [total, setTotal] = useState(0);
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -149,6 +150,12 @@ function App() {
     const widgetState = window.openai?.widgetState || {};
     delete widgetState.userId;
     window.openai.widgetState = widgetState;
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setQuery(searchInput);
+    setSkip(0); // Reset to first page when searching
   };
 
   // Login page
@@ -333,6 +340,28 @@ function App() {
           >
             Logout
           </Button>
+        </div>
+        <div className="py-3 border-b border-black/5">
+          <form onSubmit={handleSearch} className="flex gap-2">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-black/40" />
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search for products..."
+                className="w-full pl-10 pr-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+            </div>
+            <Button 
+              color="primary" 
+              variant="solid" 
+              size="md"
+              type="submit"
+            >
+              Search
+            </Button>
+          </form>
         </div>
         <div className="min-w-full text-sm flex flex-col">
           {products.map((product, i) => (
