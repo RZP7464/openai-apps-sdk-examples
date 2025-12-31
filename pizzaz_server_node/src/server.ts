@@ -515,6 +515,352 @@ const httpServer = createServer(
       return;
     }
 
+    // Dynamic checkout page
+    if (req.method === "GET" && url.pathname === "/checkout") {
+      const cartData = url.searchParams.get('cart');
+      const userId = url.searchParams.get('userId');
+      const sessionId = url.searchParams.get('sessionId');
+      const addressData = url.searchParams.get('address');
+      
+      if (!cartData || !userId || !sessionId || !addressData) {
+        res.writeHead(400).end("Missing required parameters");
+        return;
+      }
+
+      const cart = JSON.parse(decodeURIComponent(cartData));
+      const address = JSON.parse(decodeURIComponent(addressData));
+      const totalAmount = cart.reduce((sum: number, item: any) => sum + item.price, 0);
+      const razorpayKeyId = process.env.RAZORPAY_KEY_ID || "rzp_live_I51bxdyuOOsDA7";
+
+      const checkoutHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout - Order Summary</title>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 600px;
+      width: 100%;
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    .header h1 { font-size: 28px; margin-bottom: 5px; }
+    .header p { opacity: 0.9; font-size: 14px; }
+    .content { padding: 30px; }
+    .section { margin-bottom: 25px; }
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title::before {
+      content: '';
+      width: 4px;
+      height: 20px;
+      background: #667eea;
+      border-radius: 2px;
+    }
+    .cart-item {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    .cart-item img {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 2px solid #e9ecef;
+    }
+    .cart-item-details { flex: 1; }
+    .cart-item-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 4px;
+    }
+    .cart-item-price {
+      font-size: 16px;
+      font-weight: 600;
+      color: #667eea;
+    }
+    .address-box {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+    .address-box p {
+      font-size: 14px;
+      color: #555;
+      line-height: 1.6;
+      margin-bottom: 4px;
+    }
+    .address-box p strong { color: #333; }
+    .total-section {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      padding: 20px;
+      border-radius: 8px;
+      margin: 25px 0;
+    }
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .total-row:last-child {
+      margin-bottom: 0;
+      padding-top: 10px;
+      border-top: 2px solid #dee2e6;
+    }
+    .total-label { font-size: 14px; color: #666; }
+    .total-value { font-size: 16px; font-weight: 600; color: #333; }
+    .total-row:last-child .total-label {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+    }
+    .total-row:last-child .total-value {
+      font-size: 24px;
+      color: #667eea;
+    }
+    .pay-button {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    .pay-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+    .pay-button:active { transform: translateY(0); }
+    .secure-badge {
+      text-align: center;
+      margin-top: 15px;
+      font-size: 12px;
+      color: #999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    .secure-badge::before {
+      content: '🔒';
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Complete Your Order</h1>
+      <p>Review your items and proceed to payment</p>
+    </div>
+    <div class="content">
+      <div class="section">
+        <div class="section-title">Order Items</div>
+        ${cart.map((item: any) => `
+          <div class="cart-item">
+            <img src="${item.thumbnail}" alt="${item.title}">
+            <div class="cart-item-details">
+              <div class="cart-item-title">${item.title}</div>
+              <div class="cart-item-price">₹${item.price.toFixed(2)}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="section">
+        <div class="section-title">Delivery Address</div>
+        <div class="address-box">
+          <p><strong>${address.name}</strong></p>
+          <p>${address.street}</p>
+          <p>${address.city}, ${address.zip}</p>
+          <p>Phone: ${address.phone}</p>
+        </div>
+      </div>
+
+      <div class="total-section">
+        <div class="total-row">
+          <span class="total-label">Subtotal (${cart.length} items)</span>
+          <span class="total-value">₹${totalAmount.toFixed(2)}</span>
+        </div>
+        <div class="total-row">
+          <span class="total-label">Delivery</span>
+          <span class="total-value">FREE</span>
+        </div>
+        <div class="total-row">
+          <span class="total-label">Total Amount</span>
+          <span class="total-value">₹${totalAmount.toFixed(2)}</span>
+        </div>
+      </div>
+
+      <button class="pay-button" onclick="initiatePayment()">
+        Proceed to Payment
+      </button>
+      <div class="secure-badge">
+        Secure payment powered by Razorpay
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const RAZORPAY_KEY_ID = "${razorpayKeyId}";
+    const cartData = ${JSON.stringify(cart)};
+    const addressData = ${JSON.stringify(address)};
+    const userId = "${userId}";
+    const sessionId = "${sessionId}";
+    const totalAmount = ${totalAmount};
+
+    async function initiatePayment() {
+      try {
+        // Create order on backend
+        const orderResponse = await fetch(window.location.origin + '/api/razorpay/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: totalAmount,
+            currency: 'INR',
+            cart: cartData.map(item => ({ id: item.id, title: item.title, price: item.price })),
+            userId: userId,
+            sessionId: sessionId,
+            address: addressData
+          })
+        });
+
+        const orderData = await orderResponse.json();
+        if (!orderData.success) {
+          throw new Error(orderData.error || 'Failed to create order');
+        }
+
+        // Open Razorpay Checkout
+        const options = {
+          key: RAZORPAY_KEY_ID,
+          amount: orderData.order.amount,
+          currency: orderData.order.currency,
+          name: "Product Store",
+          description: \`Order for \${cartData.length} items\`,
+          order_id: orderData.order.id,
+          prefill: {
+            name: addressData.name,
+            contact: addressData.phone,
+            email: \`\${addressData.name.toLowerCase().replace(/\\s/g, '')}@example.com\`
+          },
+          notes: orderData.order.notes,
+          theme: { color: "#667eea" },
+          handler: function(response) {
+            // Payment successful
+            verifyPayment(response);
+          },
+          modal: {
+            ondismiss: function() {
+              console.log('Payment cancelled');
+            }
+          }
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.on('payment.failed', function(response) {
+          alert('Payment failed: ' + response.error.description);
+        });
+        rzp.open();
+
+      } catch (error) {
+        console.error('Payment error:', error);
+        alert('Error initiating payment: ' + error.message);
+      }
+    }
+
+    async function verifyPayment(response) {
+      try {
+        const verifyResponse = await fetch(window.location.origin + '/api/razorpay/verify-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature
+          })
+        });
+
+        const verifyData = await verifyResponse.json();
+        
+        if (verifyData.success) {
+          // Show success message and redirect
+          alert(\`Payment Successful!\\n\\nPayment ID: \${response.razorpay_payment_id}\\nOrder ID: \${response.razorpay_order_id}\\n\\nYour order will be delivered to:\\n\${addressData.street}, \${addressData.city}\`);
+          
+          // Store payment info in localStorage to pass back to widget
+          localStorage.setItem('lastPayment', JSON.stringify({
+            payment_id: response.razorpay_payment_id,
+            order_id: response.razorpay_order_id,
+            amount: totalAmount,
+            session_id: sessionId,
+            user_id: userId,
+            timestamp: new Date().toISOString(),
+            status: 'success'
+          }));
+          
+          // Redirect back to chat or close window
+          window.close();
+        } else {
+          alert('Payment verification failed. Please contact support.');
+        }
+      } catch (error) {
+        console.error('Verification error:', error);
+        alert('Error verifying payment: ' + error.message);
+      }
+    }
+  </script>
+</body>
+</html>
+`;
+
+      res.writeHead(200, {
+        "Content-Type": "text/html",
+        "Cache-Control": "no-cache"
+      });
+      res.end(checkoutHtml);
+      return;
+    }
+
     // Handle OPTIONS for Razorpay endpoints
     if (req.method === "OPTIONS" && url.pathname.startsWith("/api/razorpay/")) {
       res.writeHead(204, {
