@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { PlusCircle, Star, ShoppingCart } from "lucide-react";
+import { PlusCircle, MinusCircle, Star, ShoppingCart } from "lucide-react";
 import { Button } from "@openai/apps-sdk-ui/components/Button";
 import { Image } from "@openai/apps-sdk-ui/components/Image";
 
@@ -56,6 +56,26 @@ function App() {
       cart: newCart,
       sessionId: window.openai.widgetSessionId || Date.now().toString()
     };
+  };
+
+  const handleRemoveFromCart = (productId) => {
+    const itemIndex = cart.findIndex(item => item.id === productId);
+    if (itemIndex !== -1) {
+      const newCart = [...cart];
+      newCart.splice(itemIndex, 1);
+      setCart(newCart);
+      
+      // Update widget state
+      window.openai.widgetState = {
+        ...window.openai.widgetState,
+        cart: newCart,
+        sessionId: window.openai.widgetSessionId || Date.now().toString()
+      };
+    }
+  };
+
+  const isProductInCart = (productId) => {
+    return cart.some(item => item.id === productId);
   };
 
   const getTotalItems = () => cart.length;
@@ -236,7 +256,19 @@ function App() {
                 <div className="hidden sm:block text-end py-2 px-3 text-sm text-black/60 whitespace-nowrap flex-auto">
                   {product.category || "–"}
                 </div>
-                <div className="py-2 whitespace-nowrap flex justify-end">
+                <div className="py-2 whitespace-nowrap flex justify-end gap-2">
+                  {isProductInCart(product.id) && (
+                    <Button
+                      aria-label={`Remove ${product.title}`}
+                      color="secondary"
+                      variant="ghost"
+                      size="sm"
+                      uniform
+                      onClick={() => handleRemoveFromCart(product.id)}
+                    >
+                      <MinusCircle strokeWidth={1.5} className="h-5 w-5" />
+                    </Button>
+                  )}
                   <Button
                     aria-label={`Add ${product.title}`}
                     color="secondary"
