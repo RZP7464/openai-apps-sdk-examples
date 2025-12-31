@@ -313,7 +313,7 @@ function App() {
           ></div>
           <div className="flex-1">
             <div className="text-base sm:text-xl font-medium">
-              Product Search Results
+              Smartphone Store
             </div>
             <div className="text-sm text-black/60">
               {total} products found for "{query}"
