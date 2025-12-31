@@ -29,6 +29,9 @@ function App() {
   const DEMO_USERNAME = "Demo User";
   const DEMO_PASSWORD = "demo";
   const DEMO_USER_ID = "3e974d44-b8f0-4fe6-b3e7-f69ac5e9eb71";
+  
+  // Razorpay configuration
+  const RAZORPAY_KEY_ID = "rzp_live_I51bxdyuOOsDA7";
 
   useEffect(() => {
     // Get search parameters from tool output
@@ -60,6 +63,17 @@ function App() {
         setTotal(data.total || 0);
       });
   }, [query, skip]);
+
+  // Load Razorpay script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   const handleAddToCart = (product) => {
     const newCart = [...cart, { 
@@ -156,6 +170,79 @@ function App() {
     e.preventDefault();
     setQuery(searchInput);
     setSkip(0); // Reset to first page when searching
+  };
+
+  const handlePayment = () => {
+    const totalAmount = Math.round(parseFloat(getTotalPrice()) * 100); // Convert to paise
+    const sessionId = window.openai?.widgetSessionId || Date.now().toString();
+    
+    const options = {
+      key: RAZORPAY_KEY_ID,
+      amount: totalAmount,
+      currency: "INR",
+      name: "Product Store",
+      description: `Order for ${getTotalItems()} items`,
+      image: "https://persistent.oaistatic.com/pizzaz/title.png",
+      prefill: {
+        name: address.name,
+        contact: address.phone,
+        email: ""
+      },
+      notes: {
+        user_id: userId,
+        session_id: sessionId,
+        cart_items: JSON.stringify(cart.map(item => ({ id: item.id, title: item.title, price: item.price }))),
+        address: JSON.stringify({
+          street: address.street,
+          city: address.city,
+          zip: address.zip
+        })
+      },
+      theme: {
+        color: "#3399cc"
+      },
+      handler: function(response) {
+        // Payment successful
+        alert(`Payment successful!\nPayment ID: ${response.razorpay_payment_id}\nSession ID: ${sessionId}`);
+        
+        // Store payment details in widget state
+        const paymentRecord = {
+          payment_id: response.razorpay_payment_id,
+          amount: totalAmount / 100,
+          session_id: sessionId,
+          user_id: userId,
+          timestamp: new Date().toISOString(),
+          cart: cart,
+          address: address
+        };
+        
+        const widgetState = window.openai?.widgetState || {};
+        const payments = widgetState.payments || [];
+        payments.push(paymentRecord);
+        
+        window.openai.widgetState = {
+          ...widgetState,
+          payments,
+          lastPayment: paymentRecord
+        };
+        
+        // Clear cart after successful payment
+        setCart([]);
+        window.openai.widgetState.cart = [];
+        setShowAddressForm(false);
+      },
+      modal: {
+        ondismiss: function() {
+          console.log('Payment cancelled by user');
+        }
+      }
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.on('payment.failed', function(response) {
+      alert(`Payment failed!\nReason: ${response.error.description}`);
+    });
+    rzp.open();
   };
 
   // Login page
@@ -286,16 +373,16 @@ function App() {
               <span className="text-lg font-bold">${getTotalPrice()}</span>
             </div>
             {isAddressComplete() ? (
-              <a 
-                href={`https://pages.razorpay.com/pl_QSiWE4HOKMKQHh/view?amount=${getTotalPrice()}`}
-                target="_blank"
-                rel="noopener noreferrer"
+              <Button 
+                color="primary" 
+                variant="solid" 
+                size="md" 
+                block
+                onClick={handlePayment}
               >
-                <Button color="primary" variant="solid" size="md" block>
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Proceed to Payment
-                </Button>
-              </a>
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Pay ₹{getTotalPrice()}
+              </Button>
             ) : (
               <Button color="primary" variant="solid" size="md" block disabled>
                 Please complete all fields
