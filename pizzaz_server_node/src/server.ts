@@ -8,6 +8,9 @@ import path from "node:path";
 import { URL, fileURLToPath } from "node:url";
 import Razorpay from "razorpay";
 import crypto from "node:crypto";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import { Pool } from "pg";
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
@@ -41,6 +44,109 @@ type PizzazWidget = {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const ASSETS_DIR = path.resolve(ROOT_DIR, "assets");
+
+// PostgreSQL Database Connection
+const pool = new Pool({
+  connectionString: process.env.DB_CONNECT_URL || "postgresql://n8n_db_m3i6_user:rQ5Npj6UW6MswIiceNFYN4gFJLxr8rnL@dpg-d4o02mvgi27c73drclb0-a.oregon-postgres.render.com/n8n_db_m3i6",
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+
+// Initialize database tables
+async function initDatabase() {
+  const client = await pool.connect();
+  try {
+    // Create users table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        username VARCHAR(255) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create addresses table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS addresses (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        phone VARCHAR(50) NOT NULL,
+        street TEXT NOT NULL,
+        city VARCHAR(255) NOT NULL,
+        zip VARCHAR(20) NOT NULL,
+        is_default BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create cart_items table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS cart_items (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        product_id INTEGER NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        price DECIMAL(10, 2) NOT NULL,
+        thumbnail TEXT,
+        quantity INTEGER DEFAULT 1,
+        session_id VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create payments table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        payment_id VARCHAR(255) UNIQUE NOT NULL,
+        order_id VARCHAR(255) NOT NULL,
+        amount DECIMAL(10, 2) NOT NULL,
+        currency VARCHAR(10) DEFAULT 'INR',
+        status VARCHAR(50) DEFAULT 'success',
+        session_id VARCHAR(255),
+        cart_data JSONB,
+        address_data JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create index for faster queries
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_cart_user_id ON cart_items(user_id);
+      CREATE INDEX IF NOT EXISTS idx_addresses_user_id ON addresses(user_id);
+      CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
+    `);
+
+    console.log("Database tables initialized successfully");
+  } catch (error) {
+    console.error("Error initializing database:", error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// Initialize database on startup
+initDatabase().catch(console.error);
+
+// JWT and User Management
+const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret-jwt-key-change-in-production";
+const JWT_EXPIRY = "7d"; // Token expires in 7 days
+
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  passwordHash: string;
+  createdAt: string;
+}
 
 function readWidgetHtml(componentName: string): string {
   if (!fs.existsSync(ASSETS_DIR)) {
@@ -94,49 +200,13 @@ function widgetInvocationMeta(widget: PizzazWidget) {
 
 const widgets: PizzazWidget[] = [
   {
-    id: "pizza-map",
-    title: "Show Pizza Map",
-    templateUri: "ui://widget/pizza-map.html",
-    invoking: "Hand-tossing a map",
-    invoked: "Served a fresh map",
-    html: readWidgetHtml("pizzaz"),
-    responseText: "Rendered a pizza map!",
-  },
-  {
-    id: "pizza-carousel",
-    title: "Show Pizza Carousel",
-    templateUri: "ui://widget/pizza-carousel.html",
-    invoking: "Carousel some spots",
-    invoked: "Served a fresh carousel",
-    html: readWidgetHtml("pizzaz-carousel"),
-    responseText: "Rendered a pizza carousel!",
-  },
-  {
-    id: "pizza-albums",
-    title: "Show Pizza Album",
-    templateUri: "ui://widget/pizza-albums.html",
-    invoking: "Hand-tossing an album",
-    invoked: "Served a fresh album",
-    html: readWidgetHtml("pizzaz-albums"),
-    responseText: "Rendered a pizza album!",
-  },
-  {
     id: "product-search",
     title: "Search Products",
-    templateUri: "ui://widget/pizza-list.html",
+    templateUri: "ui://widget/product-search.html",
     invoking: "Searching products",
     invoked: "Products found",
     html: readWidgetHtml("pizzaz-list"),
     responseText: "Product search results displayed!",
-  },
-  {
-    id: "pizza-shop",
-    title: "Open Pizzaz Shop",
-    templateUri: "ui://widget/pizza-shop.html",
-    invoking: "Opening the shop",
-    invoked: "Shop opened",
-    html: readWidgetHtml("pizzaz-shop"),
-    responseText: "Rendered the Pizzaz shop!",
   },
 ];
 
@@ -421,6 +491,513 @@ const httpServer = createServer(
 
     if (req.method === "POST" && url.pathname === postPath) {
       await handlePostMessage(req, res, url);
+      return;
+    }
+
+    // Auth: Signup endpoint
+    if (req.method === "POST" && url.pathname === "/api/auth/signup") {
+      try {
+        const body = await getRequestBody(req);
+        const { username, email, password } = JSON.parse(body);
+
+        // Validation
+        if (!username || !email || !password) {
+          res.writeHead(400, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "Username, email, and password are required"
+          }));
+          return;
+        }
+
+        if (password.length < 6) {
+          res.writeHead(400, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "Password must be at least 6 characters"
+          }));
+          return;
+        }
+
+        // Check if user already exists
+        const existingUser = await pool.query(
+          'SELECT id FROM users WHERE username = $1 OR email = $2',
+          [username, email]
+        );
+
+        if (existingUser.rows.length > 0) {
+          res.writeHead(409, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "Username or email already exists"
+          }));
+          return;
+        }
+
+        // Hash password
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        // Create user
+        const result = await pool.query(
+          `INSERT INTO users (username, email, password_hash) 
+           VALUES ($1, $2, $3) 
+           RETURNING id, username, email, created_at`,
+          [username, email, passwordHash]
+        );
+
+        const user = result.rows[0];
+
+        // Generate JWT
+        const token = jwt.sign(
+          { userId: user.id, username: user.username, email: user.email },
+          JWT_SECRET,
+          { expiresIn: JWT_EXPIRY }
+        );
+
+        res.writeHead(201, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: true,
+          token,
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            createdAt: user.created_at,
+          }
+        }));
+      } catch (error: any) {
+        console.error("Signup error:", error);
+        res.writeHead(500, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: false,
+          error: error.message
+        }));
+      }
+      return;
+    }
+
+    // Auth: Login endpoint
+    if (req.method === "POST" && url.pathname === "/api/auth/login") {
+      try {
+        const body = await getRequestBody(req);
+        const { username, password } = JSON.parse(body);
+
+        // Validation
+        if (!username || !password) {
+          res.writeHead(400, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "Username and password are required"
+          }));
+          return;
+        }
+
+        // Find user
+        const result = await pool.query(
+          'SELECT id, username, email, password_hash, created_at FROM users WHERE username = $1',
+          [username]
+        );
+
+        if (result.rows.length === 0) {
+          res.writeHead(401, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "Invalid username or password"
+          }));
+          return;
+        }
+
+        const user = result.rows[0];
+
+        // Verify password
+        const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+
+        if (!isPasswordValid) {
+          res.writeHead(401, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "Invalid username or password"
+          }));
+          return;
+        }
+
+        // Generate JWT
+        const token = jwt.sign(
+          { userId: user.id, username: user.username, email: user.email },
+          JWT_SECRET,
+          { expiresIn: JWT_EXPIRY }
+        );
+
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: true,
+          token,
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            createdAt: user.created_at,
+          }
+        }));
+      } catch (error: any) {
+        console.error("Login error:", error);
+        res.writeHead(500, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: false,
+          error: error.message
+        }));
+      }
+      return;
+    }
+
+    // Auth: Verify token endpoint
+    if (req.method === "POST" && url.pathname === "/api/auth/verify") {
+      try {
+        const body = await getRequestBody(req);
+        const { token } = JSON.parse(body);
+
+        if (!token) {
+          res.writeHead(400, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "Token is required"
+          }));
+          return;
+        }
+
+        // Verify JWT
+        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        
+        // Get user from database
+        const result = await pool.query(
+          'SELECT id, username, email, created_at FROM users WHERE id = $1',
+          [decoded.userId]
+        );
+
+        if (result.rows.length === 0) {
+          res.writeHead(401, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "User not found"
+          }));
+          return;
+        }
+
+        const user = result.rows[0];
+
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: true,
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            createdAt: user.created_at,
+          }
+        }));
+      } catch (error: any) {
+        console.error("Token verification error:", error);
+        res.writeHead(401, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: false,
+          error: "Invalid or expired token"
+        }));
+      }
+      return;
+    }
+
+    // Handle OPTIONS for auth endpoints
+    if (req.method === "OPTIONS" && url.pathname.startsWith("/api/auth/")) {
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "content-type, authorization",
+      });
+      res.end();
+      return;
+    }
+
+    // Cart: Get cart items
+    if (req.method === "GET" && url.pathname === "/api/cart") {
+      try {
+        const userId = url.searchParams.get('userId');
+        
+        if (!userId) {
+          res.writeHead(400, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "User ID is required"
+          }));
+          return;
+        }
+
+        const result = await pool.query(
+          `SELECT id, product_id, title, price, thumbnail, quantity, created_at 
+           FROM cart_items 
+           WHERE user_id = $1 
+           ORDER BY created_at DESC`,
+          [userId]
+        );
+
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: true,
+          cart: result.rows
+        }));
+      } catch (error: any) {
+        console.error("Error fetching cart:", error);
+        res.writeHead(500, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: false,
+          error: error.message
+        }));
+      }
+      return;
+    }
+
+    // Cart: Add item to cart
+    if (req.method === "POST" && url.pathname === "/api/cart/add") {
+      try {
+        const body = await getRequestBody(req);
+        const { userId, productId, title, price, thumbnail, sessionId } = JSON.parse(body);
+
+        if (!userId || !productId || !title || price === undefined) {
+          res.writeHead(400, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "Missing required fields"
+          }));
+          return;
+        }
+
+        // Check if item already exists in cart
+        const existing = await pool.query(
+          'SELECT id, quantity FROM cart_items WHERE user_id = $1 AND product_id = $2',
+          [userId, productId]
+        );
+
+        if (existing.rows.length > 0) {
+          // Update quantity
+          await pool.query(
+            'UPDATE cart_items SET quantity = quantity + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+            [existing.rows[0].id]
+          );
+        } else {
+          // Insert new item
+          await pool.query(
+            `INSERT INTO cart_items (user_id, product_id, title, price, thumbnail, session_id) 
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [userId, productId, title, price, thumbnail, sessionId]
+          );
+        }
+
+        // Get updated cart
+        const result = await pool.query(
+          `SELECT id, product_id, title, price, thumbnail, quantity 
+           FROM cart_items 
+           WHERE user_id = $1 
+           ORDER BY created_at DESC`,
+          [userId]
+        );
+
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: true,
+          cart: result.rows
+        }));
+      } catch (error: any) {
+        console.error("Error adding to cart:", error);
+        res.writeHead(500, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: false,
+          error: error.message
+        }));
+      }
+      return;
+    }
+
+    // Cart: Remove item from cart
+    if (req.method === "POST" && url.pathname === "/api/cart/remove") {
+      try {
+        const body = await getRequestBody(req);
+        const { userId, productId } = JSON.parse(body);
+
+        if (!userId || !productId) {
+          res.writeHead(400, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "User ID and Product ID are required"
+          }));
+          return;
+        }
+
+        // Get current quantity
+        const existing = await pool.query(
+          'SELECT id, quantity FROM cart_items WHERE user_id = $1 AND product_id = $2',
+          [userId, productId]
+        );
+
+        if (existing.rows.length > 0) {
+          const item = existing.rows[0];
+          if (item.quantity > 1) {
+            // Decrease quantity
+            await pool.query(
+              'UPDATE cart_items SET quantity = quantity - 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+              [item.id]
+            );
+          } else {
+            // Remove item
+            await pool.query(
+              'DELETE FROM cart_items WHERE id = $1',
+              [item.id]
+            );
+          }
+        }
+
+        // Get updated cart
+        const result = await pool.query(
+          `SELECT id, product_id, title, price, thumbnail, quantity 
+           FROM cart_items 
+           WHERE user_id = $1 
+           ORDER BY created_at DESC`,
+          [userId]
+        );
+
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: true,
+          cart: result.rows
+        }));
+      } catch (error: any) {
+        console.error("Error removing from cart:", error);
+        res.writeHead(500, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: false,
+          error: error.message
+        }));
+      }
+      return;
+    }
+
+    // Cart: Clear cart
+    if (req.method === "POST" && url.pathname === "/api/cart/clear") {
+      try {
+        const body = await getRequestBody(req);
+        const { userId } = JSON.parse(body);
+
+        if (!userId) {
+          res.writeHead(400, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "User ID is required"
+          }));
+          return;
+        }
+
+        await pool.query('DELETE FROM cart_items WHERE user_id = $1', [userId]);
+
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: true,
+          cart: []
+        }));
+      } catch (error: any) {
+        console.error("Error clearing cart:", error);
+        res.writeHead(500, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: false,
+          error: error.message
+        }));
+      }
+      return;
+    }
+
+    // Handle OPTIONS for cart endpoints
+    if (req.method === "OPTIONS" && url.pathname.startsWith("/api/cart")) {
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "content-type, authorization",
+      });
+      res.end();
       return;
     }
 
