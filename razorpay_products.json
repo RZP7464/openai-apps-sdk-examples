@@ -1,0 +1,442 @@
+[
+  {
+    "id": "li_RyCva0f2VLjTIW",
+    "name": "Samsung Galaxy S10",
+    "description": "The Samsung Galaxy S10 is a flagship device featuring a dynamic AMOLED display, versatile camera system, and powerful performance. It represents innovation and excellence in smartphone technology.",
+    "images": [],
+    "selling_price": 69999,
+    "discounted_price": 69999,
+    "stock": 19,
+    "stock_available": 19,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva0MCJ4Kz1i",
+    "name": "Book 1",
+    "description": "",
+    "images": [],
+    "selling_price": 1000,
+    "discounted_price": 1000,
+    "stock": -1,
+    "stock_available": 0,
+    "stock_sold": 0,
+    "status": "unlimited",
+    "categories": [
+      {
+        "id": "cat_others",
+        "name": "Others",
+        "alias": "others"
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva0xNlosxr6",
+    "name": "Samsung Galaxy S7",
+    "description": "The Samsung Galaxy S7 is a flagship smartphone known for its sleek design and advanced features. It features a high-resolution display, powerful camera, and robust performance.",
+    "images": [],
+    "selling_price": 29999,
+    "discounted_price": 29999,
+    "stock": 67,
+    "stock_available": 67,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva1aEltYp5L",
+    "name": "Realme X",
+    "description": "The Realme X is a mid-range smartphone known for its sleek design and impressive display. It offers a good balance of performance and camera capabilities for users seeking a quality device.",
+    "images": [],
+    "selling_price": 29999,
+    "discounted_price": 29999,
+    "stock": 12,
+    "stock_available": 12,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva1H9mh69nm",
+    "name": "Realme XT",
+    "description": "The Realme XT is a feature-rich smartphone with a focus on camera technology. It comes equipped with advanced camera sensors, delivering high-quality photos and videos for photography enthusiasts.",
+    "images": [],
+    "selling_price": 34999,
+    "discounted_price": 34999,
+    "stock": 80,
+    "stock_available": 80,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva1t4ZYqbR2",
+    "name": "Realme C35",
+    "description": "The Realme C35 is a budget-friendly smartphone with a focus on providing essential features for everyday use. It offers a reliable performance and user-friendly experience.",
+    "images": [],
+    "selling_price": 14999,
+    "discounted_price": 14999,
+    "stock": 48,
+    "stock_available": 48,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva2CKpNHPNe",
+    "name": "Oppo K1",
+    "description": "The Oppo K1 series offers a range of smartphones with various features and specifications. Known for their stylish design and reliable performance, the Oppo K1 series caters to diverse user preferences.",
+    "images": [],
+    "selling_price": 29999,
+    "discounted_price": 29999,
+    "stock": 55,
+    "stock_available": 55,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva2omYp4e0o",
+    "name": "Oppo A57",
+    "description": "The Oppo A57 is a mid-range smartphone known for its sleek design and capable features. It offers a balance of performance and affordability, making it a popular choice.",
+    "images": [],
+    "selling_price": 24999,
+    "discounted_price": 24999,
+    "stock": 19,
+    "stock_available": 19,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva2VxdvkwxA",
+    "name": "Oppo F19 Pro Plus",
+    "description": "The Oppo F19 Pro Plus is a feature-rich smartphone with a focus on camera capabilities. It boasts advanced photography features and a powerful performance for a premium user experience.",
+    "images": [],
+    "selling_price": 39999,
+    "discounted_price": 39999,
+    "stock": 78,
+    "stock_available": 78,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva3BlZMhf6h",
+    "name": "iPhone X",
+    "description": "The iPhone X is a flagship smartphone featuring a bezel-less OLED display, facial recognition technology (Face ID), and impressive performance. It represents a milestone in iPhone design and innovation.",
+    "images": [],
+    "selling_price": 89999,
+    "discounted_price": 89999,
+    "stock": 37,
+    "stock_available": 37,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva3VaMbtCPD",
+    "name": "iPhone 13 Pro",
+    "description": "The iPhone 13 Pro is a cutting-edge smartphone with a powerful camera system, high-performance chip, and stunning display. It offers advanced features for users who demand top-notch technology.",
+    "images": [],
+    "selling_price": 109999,
+    "discounted_price": 109999,
+    "stock": 56,
+    "stock_available": 56,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva3y63PKsTr",
+    "name": "iPhone 6",
+    "description": "The iPhone 6 is a stylish and capable smartphone with a larger display and improved performance. It introduced new features and design elements, making it a popular choice in its time.",
+    "images": [],
+    "selling_price": 29999,
+    "discounted_price": 29999,
+    "stock": 60,
+    "stock_available": 60,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva4dIzWoIMq",
+    "name": "Selfie Stick Monopod",
+    "description": "The Selfie Stick Monopod is a extendable and foldable device for capturing the perfect selfie or group photo. Compatible with smartphones and cameras.",
+    "images": [],
+    "selling_price": 1299,
+    "discounted_price": 1299,
+    "stock": 11,
+    "stock_available": 11,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva4Ih1UoGwA",
+    "name": "iPhone 5s",
+    "description": "The iPhone 5s is a classic smartphone known for its compact design and advanced features during its release. While it&#39;s an older model, it still provides a reliable user experience.",
+    "images": [],
+    "selling_price": 19999,
+    "discounted_price": 19999,
+    "stock": 25,
+    "stock_available": 25,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva4wdTsRc5g",
+    "name": "Selfie Lamp with iPhone",
+    "description": "The Selfie Lamp with iPhone is a portable and adjustable LED light designed to enhance your selfies and video calls. Attach it to your iPhone for well-lit photos.",
+    "images": [],
+    "selling_price": 1499,
+    "discounted_price": 1499,
+    "stock": 58,
+    "stock_available": 58,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva5bYtrwhK6",
+    "name": "Beats Flex Wireless Earphones",
+    "description": "The Beats Flex Wireless Earphones offer a comfortable and versatile audio experience. With magnetic earbuds and up to 12 hours of battery life, they are ideal for everyday use.",
+    "images": [],
+    "selling_price": 4999,
+    "discounted_price": 4999,
+    "stock": 50,
+    "stock_available": 50,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva5HIYk87Ic",
+    "name": "iPhone 12 Silicone Case with MagSafe Plum",
+    "description": "The iPhone 12 Silicone Case with MagSafe in Plum is a stylish and protective case designed for the iPhone 12. It features MagSafe technology for easy attachment of accessories.",
+    "images": [],
+    "selling_price": 2999,
+    "discounted_price": 2999,
+    "stock": 69,
+    "stock_available": 69,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva5vhMqKvwE",
+    "name": "Apple MagSafe Battery Pack",
+    "description": "The Apple MagSafe Battery Pack is a portable and convenient way to add extra battery life to your MagSafe-compatible iPhone. Attach it magnetically for a secure connection.",
+    "images": [],
+    "selling_price": 9999,
+    "discounted_price": 9999,
+    "stock": 1,
+    "stock_available": 1,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva6EqcvKLY2",
+    "name": "Apple iPhone Charger",
+    "description": "The Apple iPhone Charger is a high-quality charger designed for fast and efficient charging of your iPhone. Ensure your device stays powered up and ready to go.",
+    "images": [],
+    "selling_price": 1999,
+    "discounted_price": 1999,
+    "stock": 31,
+    "stock_available": 31,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva6s2cgVRct",
+    "name": "Smartphone",
+    "description": "Some Description",
+    "images": [
+      "https://s3.ap-south-1.amazonaws.com/rzp-prod-merchant-assets/payment-link/description/rycajlcdxbdr3f.jpeg"
+    ],
+    "selling_price": 1000,
+    "discounted_price": 1000,
+    "stock": 100,
+    "stock_available": 100,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCva6YX3PnkdI",
+    "name": "Apple AirPods Max Silver",
+    "description": "The Apple AirPods Max in Silver are premium over-ear headphones with high-fidelity audio, adaptive EQ, and active noise cancellation. Experience immersive sound in style.",
+    "images": [],
+    "selling_price": 54999,
+    "discounted_price": 54999,
+    "stock": 59,
+    "stock_available": 59,
+    "stock_sold": 0,
+    "status": "in_stock",
+    "categories": [
+      {
+        "id": "cat_RyCAUnKA8Ejino",
+        "name": "Smartphone",
+        "alias": "smartphone",
+        "catalog_count": 0
+      }
+    ]
+  },
+  {
+    "id": "li_RyCvZzx3R29j81",
+    "name": "Book 2",
+    "description": "",
+    "images": [],
+    "selling_price": 2000,
+    "discounted_price": 2000,
+    "stock": -1,
+    "stock_available": 0,
+    "stock_sold": 0,
+    "status": "unlimited",
+    "categories": [
+      {
+        "id": "cat_others",
+        "name": "Others",
+        "alias": "others"
+      }
+    ]
+  }
+]
