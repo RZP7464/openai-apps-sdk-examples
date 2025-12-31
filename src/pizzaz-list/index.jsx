@@ -12,10 +12,20 @@ function App() {
   const [skip, setSkip] = useState(0);
   const [total, setTotal] = useState(0);
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userId, setUserId] = useState(null);
   const [loginError, setLoginError] = useState("");
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
+  const [paymentForm, setPaymentForm] = useState({
+    cardNumber: "",
+    cardName: "",
+    expiryMonth: "",
+    expiryYear: "",
+    cvv: ""
+  });
+  const [paymentError, setPaymentError] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
   const [address, setAddress] = useState({
     name: "",
     phone: "",
@@ -63,17 +73,6 @@ function App() {
         setTotal(data.total || 0);
       });
   }, [query, skip]);
-
-  // Load Razorpay script
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    document.body.appendChild(script);
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
 
   const handleAddToCart = (product) => {
     const newCart = [...cart, { 
@@ -172,77 +171,176 @@ function App() {
     setSkip(0); // Reset to first page when searching
   };
 
-  const handlePayment = () => {
-    const totalAmount = Math.round(parseFloat(getTotalPrice()) * 100); // Convert to paise
-    const sessionId = window.openai?.widgetSessionId || Date.now().toString();
-    
-    const options = {
-      key: RAZORPAY_KEY_ID,
-      amount: totalAmount,
-      currency: "INR",
-      name: "Product Store",
-      description: `Order for ${getTotalItems()} items`,
-      image: "https://persistent.oaistatic.com/pizzaz/title.png",
-      prefill: {
-        name: address.name,
-        contact: address.phone,
-        email: ""
-      },
-      notes: {
-        user_id: userId,
-        session_id: sessionId,
-        cart_items: JSON.stringify(cart.map(item => ({ id: item.id, title: item.title, price: item.price }))),
-        address: JSON.stringify({
-          street: address.street,
-          city: address.city,
-          zip: address.zip
-        })
-      },
-      theme: {
-        color: "#3399cc"
-      },
-      handler: function(response) {
-        // Payment successful
-        alert(`Payment successful!\nPayment ID: ${response.razorpay_payment_id}\nSession ID: ${sessionId}`);
-        
-        // Store payment details in widget state
-        const paymentRecord = {
-          payment_id: response.razorpay_payment_id,
-          amount: totalAmount / 100,
-          session_id: sessionId,
-          user_id: userId,
-          timestamp: new Date().toISOString(),
-          cart: cart,
-          address: address
-        };
-        
-        const widgetState = window.openai?.widgetState || {};
-        const payments = widgetState.payments || [];
-        payments.push(paymentRecord);
-        
-        window.openai.widgetState = {
-          ...widgetState,
-          payments,
-          lastPayment: paymentRecord
-        };
-        
-        // Clear cart after successful payment
-        setCart([]);
-        window.openai.widgetState.cart = [];
-        setShowAddressForm(false);
-      },
-      modal: {
-        ondismiss: function() {
-          console.log('Payment cancelled by user');
-        }
-      }
-    };
+  const handleProceedToPayment = () => {
+    setShowAddressForm(false);
+    setShowPaymentForm(true);
+  };
 
-    const rzp = new window.Razorpay(options);
-    rzp.on('payment.failed', function(response) {
-      alert(`Payment failed!\nReason: ${response.error.description}`);
-    });
-    rzp.open();
+  const formatCardNumber = (value) => {
+    const cleaned = value.replace(/\s/g, '');
+    const formatted = cleaned.match(/.{1,4}/g)?.join(' ') || cleaned;
+    return formatted.substring(0, 19); // Max 16 digits + 3 spaces
+  };
+
+  const handlePaymentFormChange = (field, value) => {
+    if (field === 'cardNumber') {
+      value = formatCardNumber(value);
+    } else if (field === 'expiryMonth' || field === 'expiryYear') {
+      value = value.replace(/\D/g, '').substring(0, field === 'expiryMonth' ? 2 : 4);
+    } else if (field === 'cvv') {
+      value = value.replace(/\D/g, '').substring(0, 3);
+    }
+    setPaymentForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const validatePaymentForm = () => {
+    const cardNumberDigits = paymentForm.cardNumber.replace(/\s/g, '');
+    if (cardNumberDigits.length !== 16) return false;
+    if (!paymentForm.cardName.trim()) return false;
+    if (!paymentForm.expiryMonth || !paymentForm.expiryYear) return false;
+    if (paymentForm.cvv.length !== 3) return false;
+    
+    const month = parseInt(paymentForm.expiryMonth);
+    if (month < 1 || month > 12) return false;
+    
+    const year = parseInt(paymentForm.expiryYear);
+    const currentYear = new Date().getFullYear();
+    if (year < currentYear || year > currentYear + 20) return false;
+    
+    return true;
+  };
+
+  const handlePayment = async () => {
+    if (!validatePaymentForm()) {
+      setPaymentError("Please fill in all card details correctly");
+      return;
+    }
+
+    setIsProcessing(true);
+    setPaymentError("");
+    
+    const totalAmount = parseFloat(getTotalPrice());
+    const sessionId = window.openai?.widgetSessionId || Date.now().toString();
+    const baseUrl = window.location.origin;
+    
+    try {
+      // Step 1: Create Razorpay order on backend
+      const orderResponse = await fetch(`${baseUrl}/api/razorpay/create-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: totalAmount,
+          currency: 'INR',
+          cart: cart.map(item => ({ id: item.id, title: item.title, price: item.price })),
+          userId: userId,
+          sessionId: sessionId,
+          address: address
+        })
+      });
+
+      const orderData = await orderResponse.json();
+      
+      if (!orderData.success) {
+        throw new Error(orderData.error || 'Failed to create order');
+      }
+
+      const order = orderData.order;
+
+      // Step 2: Create payment using Razorpay Payment API
+      const paymentResponse = await fetch('https://api.razorpay.com/v1/payments/create/json', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          key_id: RAZORPAY_KEY_ID,
+          amount: order.amount,
+          currency: order.currency,
+          order_id: order.id,
+          card: {
+            number: paymentForm.cardNumber.replace(/\s/g, ''),
+            name: paymentForm.cardName,
+            expiry_month: paymentForm.expiryMonth,
+            expiry_year: paymentForm.expiryYear,
+            cvv: paymentForm.cvv,
+          },
+          email: address.name ? `${address.name.toLowerCase().replace(/\s/g, '')}@example.com` : 'customer@example.com',
+          contact: address.phone,
+        })
+      });
+
+      const paymentData = await paymentResponse.json();
+
+      if (paymentData.error) {
+        throw new Error(paymentData.error.description || 'Payment failed');
+      }
+
+      // Step 3: Verify payment signature on backend
+      const verifyResponse = await fetch(`${baseUrl}/api/razorpay/verify-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          razorpay_order_id: order.id,
+          razorpay_payment_id: paymentData.razorpay_payment_id,
+          razorpay_signature: paymentData.razorpay_signature
+        })
+      });
+
+      const verifyData = await verifyResponse.json();
+
+      if (!verifyData.success) {
+        throw new Error('Payment verification failed');
+      }
+
+      // Store payment details in widget state
+      const paymentRecord = {
+        payment_id: paymentData.razorpay_payment_id,
+        order_id: order.id,
+        amount: totalAmount,
+        currency: "INR",
+        session_id: sessionId,
+        user_id: userId,
+        timestamp: new Date().toISOString(),
+        cart: cart,
+        address: address,
+        card_last4: paymentForm.cardNumber.replace(/\s/g, '').slice(-4),
+        status: "success"
+      };
+      
+      const widgetState = window.openai?.widgetState || {};
+      const payments = widgetState.payments || [];
+      payments.push(paymentRecord);
+      
+      window.openai.widgetState = {
+        ...widgetState,
+        payments,
+        lastPayment: paymentRecord
+      };
+      
+      // Clear cart and forms after successful payment
+      setCart([]);
+      window.openai.widgetState.cart = [];
+      setShowPaymentForm(false);
+      setPaymentForm({
+        cardNumber: "",
+        cardName: "",
+        expiryMonth: "",
+        expiryYear: "",
+        cvv: ""
+      });
+      setIsProcessing(false);
+      
+      alert(`Payment successful!\nPayment ID: ${paymentData.razorpay_payment_id}\nOrder ID: ${order.id}\nAmount: ₹${totalAmount}\nSession ID: ${sessionId}`);
+      
+    } catch (error) {
+      console.error('Payment error:', error);
+      setPaymentError(error.message || 'Payment failed. Please try again.');
+      setIsProcessing(false);
+    }
   };
 
   // Login page
@@ -378,16 +476,157 @@ function App() {
                 variant="solid" 
                 size="md" 
                 block
-                onClick={handlePayment}
+                onClick={handleProceedToPayment}
               >
                 <ShoppingCart className="h-4 w-4 mr-2" />
-                Pay ₹{getTotalPrice()}
+                Proceed to Payment
               </Button>
             ) : (
               <Button color="primary" variant="solid" size="md" block disabled>
                 Please complete all fields
               </Button>
             )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Payment form
+  if (showPaymentForm) {
+    return (
+      <div className="antialiased w-full text-black px-4 pb-4 border border-black/10 rounded-2xl sm:rounded-3xl overflow-hidden bg-white">
+        <div className="max-w-md mx-auto">
+          <div className="flex flex-row items-center gap-4 border-b border-black/5 py-4">
+            <div className="flex-1">
+              <div className="text-base sm:text-xl font-medium">Payment Details</div>
+              <div className="text-sm text-black/60">Enter your card information</div>
+            </div>
+            <Button 
+              color="secondary" 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                setShowPaymentForm(false);
+                setShowAddressForm(true);
+              }}
+              disabled={isProcessing}
+            >
+              Back
+            </Button>
+          </div>
+          <div className="py-4 space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex justify-between text-sm mb-1">
+                <span className="font-medium">Order Total</span>
+                <span className="font-bold text-lg">₹{getTotalPrice()}</span>
+              </div>
+              <div className="text-xs text-black/60">{getTotalItems()} items</div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">Card Number</label>
+              <input
+                type="text"
+                value={paymentForm.cardNumber}
+                onChange={(e) => handlePaymentFormChange('cardNumber', e.target.value)}
+                className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                placeholder="1234 5678 9012 3456"
+                maxLength="19"
+                disabled={isProcessing}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">Cardholder Name</label>
+              <input
+                type="text"
+                value={paymentForm.cardName}
+                onChange={(e) => handlePaymentFormChange('cardName', e.target.value.toUpperCase())}
+                className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="JOHN DOE"
+                disabled={isProcessing}
+              />
+            </div>
+            
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1">Expiry Date</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={paymentForm.expiryMonth}
+                    onChange={(e) => handlePaymentFormChange('expiryMonth', e.target.value)}
+                    className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                    placeholder="MM"
+                    maxLength="2"
+                    disabled={isProcessing}
+                  />
+                  <input
+                    type="text"
+                    value={paymentForm.expiryYear}
+                    onChange={(e) => handlePaymentFormChange('expiryYear', e.target.value)}
+                    className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                    placeholder="YYYY"
+                    maxLength="4"
+                    disabled={isProcessing}
+                  />
+                </div>
+              </div>
+              <div className="w-28">
+                <label className="block text-sm font-medium mb-1">CVV</label>
+                <input
+                  type="text"
+                  value={paymentForm.cvv}
+                  onChange={(e) => handlePaymentFormChange('cvv', e.target.value)}
+                  className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                  placeholder="123"
+                  maxLength="3"
+                  disabled={isProcessing}
+                />
+              </div>
+            </div>
+            
+            {paymentError && (
+              <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+                {paymentError}
+              </div>
+            )}
+            
+            <div className="bg-black/5 rounded-lg p-3 space-y-1 text-xs text-black/60">
+              <div className="flex justify-between">
+                <span>Delivery Address:</span>
+                <span className="text-right font-medium text-black/80">
+                  {address.street}, {address.city} {address.zip}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Contact:</span>
+                <span className="font-medium text-black/80">{address.phone}</span>
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-black/5 pt-3">
+            <Button 
+              color="primary" 
+              variant="solid" 
+              size="md" 
+              block
+              onClick={handlePayment}
+              disabled={isProcessing || !validatePaymentForm()}
+            >
+              {isProcessing ? (
+                "Processing Payment..."
+              ) : (
+                <>
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  Pay ₹{getTotalPrice()}
+                </>
+              )}
+            </Button>
+            <div className="text-xs text-center text-black/40 mt-2">
+              🔒 Secure payment • Session ID: {window.openai?.widgetSessionId?.substring(0, 8)}...
+            </div>
           </div>
         </div>
       </div>
@@ -566,7 +805,7 @@ function App() {
               >
                 <ShoppingCart className="h-4 w-4 mr-2" />
                 Proceed to Checkout ({getTotalItems()} items)
-              </Button>
+          </Button>
             </div>
           )}
         </div>

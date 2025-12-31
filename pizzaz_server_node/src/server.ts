@@ -6,6 +6,8 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 import { URL, fileURLToPath } from "node:url";
+import Razorpay from "razorpay";
+import crypto from "node:crypto";
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
@@ -359,6 +361,28 @@ async function handlePostMessage(
 const portEnv = Number(process.env.PORT ?? 8000);
 const port = Number.isFinite(portEnv) ? portEnv : 8000;
 
+// Initialize Razorpay
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || "rzp_live_I51bxdyuOOsDA7",
+  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
+});
+
+// Helper function to read request body
+const getRequestBody = (req: IncomingMessage): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk.toString();
+    });
+    req.on("end", () => {
+      resolve(body);
+    });
+    req.on("error", (err) => {
+      reject(err);
+    });
+  });
+};
+
 const httpServer = createServer(
   async (req: IncomingMessage, res: ServerResponse) => {
     if (!req.url) {
@@ -397,6 +421,108 @@ const httpServer = createServer(
 
     if (req.method === "POST" && url.pathname === postPath) {
       await handlePostMessage(req, res, url);
+      return;
+    }
+
+    // Razorpay create order endpoint
+    if (req.method === "POST" && url.pathname === "/api/razorpay/create-order") {
+      try {
+        const body = await getRequestBody(req);
+        const { amount, currency, cart, userId, sessionId, address } = JSON.parse(body);
+
+        const options = {
+          amount: Math.round(amount * 100), // amount in paise
+          currency: currency || "INR",
+          receipt: `receipt_${sessionId}_${Date.now()}`,
+          notes: {
+            user_id: userId,
+            session_id: sessionId,
+            cart_items: JSON.stringify(cart),
+            address: JSON.stringify(address),
+          },
+        };
+
+        const order = await razorpay.orders.create(options);
+
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: true,
+          order
+        }));
+      } catch (error: any) {
+        console.error("Error creating Razorpay order:", error);
+        res.writeHead(500, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: false,
+          error: error.message
+        }));
+      }
+      return;
+    }
+
+    // Razorpay verify payment endpoint
+    if (req.method === "POST" && url.pathname === "/api/razorpay/verify-payment") {
+      try {
+        const body = await getRequestBody(req);
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = JSON.parse(body);
+
+        // Verify signature
+        const sign = razorpay_order_id + "|" + razorpay_payment_id;
+        const expectedSign = crypto
+          .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "")
+          .update(sign)
+          .digest("hex");
+
+        const isAuthentic = expectedSign === razorpay_signature;
+
+        if (isAuthentic) {
+          res.writeHead(200, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: true,
+            message: "Payment verified successfully",
+            payment_id: razorpay_payment_id
+          }));
+        } else {
+          res.writeHead(400, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            message: "Invalid payment signature"
+          }));
+        }
+      } catch (error: any) {
+        console.error("Error verifying payment:", error);
+        res.writeHead(500, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: false,
+          error: error.message
+        }));
+      }
+      return;
+    }
+
+    // Handle OPTIONS for Razorpay endpoints
+    if (req.method === "OPTIONS" && url.pathname.startsWith("/api/razorpay/")) {
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "content-type",
+      });
+      res.end();
       return;
     }
 
