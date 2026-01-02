@@ -1309,6 +1309,125 @@ const httpServer = createServer(
       return;
     }
 
+    // Razorpay Magic Checkout - Create Order and Generate Checkout URL
+    if (req.method === "POST" && url.pathname === "/api/razorpay/magic-checkout") {
+      try {
+        const body = await getRequestBody(req);
+        const { products, customer, callbacks } = JSON.parse(body);
+
+        if (!products || !Array.isArray(products) || products.length === 0) {
+          res.writeHead(400, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "Products array is required"
+          }));
+          return;
+        }
+
+        // Calculate totals
+        const lineItemsTotal = products.reduce((sum: number, p: any) => 
+          sum + (p.selling_price * (p.quantity || 1)), 0
+        );
+
+        // Format line items for Razorpay
+        const lineItems = products.map((p: any) => ({
+          sku: p.id || p.sku || "default-sku",
+          variant_id: p.variant_id || p.id || "",
+          price: p.selling_price,
+          offer_price: p.discounted_price || p.selling_price,
+          tax_amount: p.tax_amount || 0,
+          quantity: p.quantity || 1,
+          name: p.name,
+          description: p.description || p.name,
+          image_url: p.images && p.images[0] ? p.images[0] : "",
+          product_url: p.product_url || "",
+          notes: p.notes || {}
+        }));
+
+        // Create order on Razorpay
+        const orderPayload = {
+          amount: lineItemsTotal,
+          currency: "INR",
+          receipt: `receipt_${Date.now()}`,
+          notes: {},
+          line_items_total: lineItemsTotal,
+          line_items: lineItems
+        };
+
+        const razorpayAuth = Buffer.from(
+          `${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`
+        ).toString('base64');
+
+        const orderResponse = await fetch('https://api.razorpay.com/v1/orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Basic ${razorpayAuth}`
+          },
+          body: JSON.stringify(orderPayload)
+        });
+
+        if (!orderResponse.ok) {
+          const errorData = await orderResponse.text();
+          throw new Error(`Razorpay API Error: ${orderResponse.status} - ${errorData}`);
+        }
+
+        const orderData = await orderResponse.json();
+
+        // Generate Magic Checkout URL form data
+        const checkoutParams = new URLSearchParams({
+          'checkout[key]': process.env.RAZORPAY_KEY_ID || '',
+          'checkout[order_id]': orderData.id,
+          'checkout[name]': customer?.name || 'Customer',
+          'checkout[prefill][contact]': customer?.phone || '',
+          'checkout[prefill][email]': customer?.email || '',
+          'checkout[notes][mode]': 'live',
+          'url[callback]': callbacks?.success || 'https://google.com',
+          'url[cancel]': callbacks?.cancel || 'https://yahoo.com'
+        });
+
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: true,
+          order: orderData,
+          checkout_url: 'https://api.razorpay.com/v1/checkout/hosted',
+          form_data: Object.fromEntries(checkoutParams),
+          html_form: `
+            <form id="razorpay-magic-checkout" action="https://api.razorpay.com/v1/checkout/hosted" method="POST">
+              <input type="hidden" name="checkout[key]" value="${process.env.RAZORPAY_KEY_ID}" />
+              <input type="hidden" name="checkout[order_id]" value="${orderData.id}" />
+              <input type="hidden" name="checkout[name]" value="${customer?.name || 'Customer'}" />
+              <input type="hidden" name="checkout[prefill][contact]" value="${customer?.phone || ''}" />
+              <input type="hidden" name="checkout[prefill][email]" value="${customer?.email || ''}" />
+              <input type="hidden" name="checkout[notes][mode]" value="live" />
+              <input type="hidden" name="url[callback]" value="${callbacks?.success || 'https://google.com'}" />
+              <input type="hidden" name="url[cancel]" value="${callbacks?.cancel || 'https://yahoo.com'}" />
+              <button type="submit">Proceed to Magic Checkout</button>
+            </form>
+            <script>document.getElementById('razorpay-magic-checkout').submit();</script>
+          `
+        }));
+
+      } catch (error: any) {
+        console.error("Error creating Magic Checkout:", error);
+        res.writeHead(500, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: false,
+          error: error.message || "Failed to create Magic Checkout"
+        }));
+      }
+      return;
+    }
+
     // Dynamic checkout page
     if (req.method === "GET" && url.pathname === "/checkout") {
       const cartData = url.searchParams.get('cart');

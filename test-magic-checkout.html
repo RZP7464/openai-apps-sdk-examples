@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Razorpay Magic Checkout - Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .subtitle {
+      color: #666;
+    }
+    
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    
+    .card h3 {
+      color: #667eea;
+      margin-bottom: 15px;
+    }
+    
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 15px;
+    }
+    
+    .product {
+      border: 2px solid #e0e0e0;
+      padding: 15px;
+      border-radius: 8px;
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+    
+    .product:hover {
+      border-color: #667eea;
+      transform: translateY(-2px);
+    }
+    
+    .product.selected {
+      border-color: #667eea;
+      background: #f0f4ff;
+    }
+    
+    .product-name {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+    
+    .product-price {
+      font-size: 18px;
+      color: #667eea;
+      font-weight: 700;
+    }
+    
+    .product-stock {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
+    }
+    
+    .quantity-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    .quantity-control button {
+      background: #667eea;
+      color: white;
+      border: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    
+    .quantity-control span {
+      min-width: 30px;
+      text-align: center;
+      font-weight: 600;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #333;
+      font-weight: 600;
+    }
+    
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    
+    .form-group input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      transition: transform 0.2s;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .cart-summary {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+    }
+    
+    .cart-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .cart-total {
+      display: flex;
+      justify-content: space-between;
+      font-size: 18px;
+      font-weight: 700;
+      color: #667eea;
+      margin-top: 10px;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #667eea;
+    }
+    
+    .success, .error {
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+    }
+    
+    .success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    pre {
+      background: #282c34;
+      color: #abb2bf;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🛒 Razorpay Magic Checkout Test</h1>
+      <p class="subtitle">Select products and test the complete checkout flow</p>
+    </div>
+
+    <div id="products-section" class="card">
+      <h3>1. Select Products</h3>
+      <button onclick="loadProducts()" style="margin-bottom: 15px; padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">
+        Load Products from Store
+      </button>
+      <div id="products-grid" class="product-grid"></div>
+    </div>
+
+    <div class="card">
+      <h3>2. Customer Information</h3>
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="customer-name" value="John Doe" placeholder="Enter customer name">
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="text" id="customer-phone" value="+919876543210" placeholder="+919876543210">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="customer-email" value="john@example.com" placeholder="email@example.com">
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>3. Cart Summary</h3>
+      <div id="cart-summary" class="cart-summary">
+        <p style="color: #666; text-align: center;">No items in cart</p>
+      </div>
+      <button class="btn" onclick="createCheckout()" id="checkout-btn" disabled>
+        Proceed to Magic Checkout
+      </button>
+    </div>
+
+    <div id="response-section" class="card" style="display: none;">
+      <h3>API Response</h3>
+      <div id="response-content"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:8000';
+    const STORE_URL = 'https://pages.razorpay.com/stores/st_RvP3FIXbUltGLM';
+    
+    let allProducts = [];
+    let selectedProducts = {};
+
+    async function loadProducts() {
+      const grid = document.getElementById('products-grid');
+      grid.innerHTML = '<div class="loading">Loading products...</div>';
+
+      try {
+        const response = await fetch(`${API_BASE}/api/razorpay/parse-store?url=${STORE_URL}`);
+        const data = await response.json();
+
+        if (data.success) {
+          allProducts = data.products;
+          displayProducts(data.products.slice(0, 10)); // Show first 10
+        } else {
+          grid.innerHTML = `<div class="error">Error loading products: ${data.error}</div>`;
+        }
+      } catch (error) {
+        grid.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+      }
+    }
+
+    function displayProducts(products) {
+      const grid = document.getElementById('products-grid');
+      grid.innerHTML = products.map(p => `
+        <div class="product" id="product-${p.id}" onclick="toggleProduct('${p.id}')">
+          <div class="product-name">${p.name}</div>
+          <div class="product-price">₹${(p.selling_price / 100).toFixed(2)}</div>
+          <div class="product-stock">${p.stock === -1 ? 'Unlimited' : `${p.stock} in stock`}</div>
+          <div class="quantity-control" id="quantity-${p.id}" style="display: none;">
+            <button onclick="updateQuantity('${p.id}', -1); event.stopPropagation();">-</button>
+            <span id="qty-${p.id}">1</span>
+            <button onclick="updateQuantity('${p.id}', 1); event.stopPropagation();">+</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function toggleProduct(productId) {
+      const product = allProducts.find(p => p.id === productId);
+      const elem = document.getElementById(`product-${productId}`);
+      const qtyControl = document.getElementById(`quantity-${productId}`);
+
+      if (selectedProducts[productId]) {
+        delete selectedProducts[productId];
+        elem.classList.remove('selected');
+        qtyControl.style.display = 'none';
+      } else {
+        selectedProducts[productId] = { ...product, quantity: 1 };
+        elem.classList.add('selected');
+        qtyControl.style.display = 'flex';
+      }
+
+      updateCartSummary();
+    }
+
+    function updateQuantity(productId, delta) {
+      if (!selectedProducts[productId]) return;
+
+      selectedProducts[productId].quantity = Math.max(1, selectedProducts[productId].quantity + delta);
+      document.getElementById(`qty-${productId}`).textContent = selectedProducts[productId].quantity;
+      updateCartSummary();
+    }
+
+    function updateCartSummary() {
+      const summary = document.getElementById('cart-summary');
+      const btn = document.getElementById('checkout-btn');
+      const items = Object.values(selectedProducts);
+
+      if (items.length === 0) {
+        summary.innerHTML = '<p style="color: #666; text-align: center;">No items in cart</p>';
+        btn.disabled = true;
+        return;
+      }
+
+      const total = items.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0);
+
+      summary.innerHTML = `
+        ${items.map(item => `
+          <div class="cart-item">
+            <span>${item.name} × ${item.quantity}</span>
+            <span>₹${((item.selling_price * item.quantity) / 100).toFixed(2)}</span>
+          </div>
+        `).join('')}
+        <div class="cart-total">
+          <span>Total:</span>
+          <span>₹${(total / 100).toFixed(2)}</span>
+        </div>
+      `;
+
+      btn.disabled = false;
+    }
+
+    async function createCheckout() {
+      const btn = document.getElementById('checkout-btn');
+      const responseSection = document.getElementById('response-section');
+      const responseContent = document.getElementById('response-content');
+
+      btn.disabled = true;
+      btn.textContent = 'Creating checkout...';
+      responseSection.style.display = 'block';
+      responseContent.innerHTML = '<div class="loading">Creating Razorpay order...</div>';
+
+      try {
+        const products = Object.values(selectedProducts);
+        const customer = {
+          name: document.getElementById('customer-name').value,
+          phone: document.getElementById('customer-phone').value,
+          email: document.getElementById('customer-email').value
+        };
+
+        const response = await fetch(`${API_BASE}/api/razorpay/magic-checkout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            products,
+            customer,
+            callbacks: {
+              success: window.location.origin + '?success=true',
+              cancel: window.location.origin + '?cancel=true'
+            }
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          responseContent.innerHTML = `
+            <div class="success">
+              <strong>✅ Checkout Created Successfully!</strong><br><br>
+              Order ID: <code>${data.order.id}</code><br>
+              Amount: ₹${(data.order.amount / 100).toFixed(2)}<br><br>
+              <button class="btn" onclick="openMagicCheckout()">Open Magic Checkout</button>
+            </div>
+            <details>
+              <summary style="cursor: pointer; font-weight: 600; margin-top: 15px;">View Full Response</summary>
+              <pre>${JSON.stringify(data, null, 2)}</pre>
+            </details>
+          `;
+
+          // Store the form data for later use
+          window.checkoutData = data;
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (error) {
+        responseContent.innerHTML = `
+          <div class="error">
+            <strong>❌ Error</strong><br>
+            ${error.message}
+          </div>
+        `;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Proceed to Magic Checkout';
+      }
+    }
+
+    function openMagicCheckout() {
+      if (!window.checkoutData) return;
+
+      // Create and submit the form
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = window.checkoutData.html_form;
+      document.body.appendChild(tempDiv);
+    }
+
+    // Auto-load products on page load
+    window.onload = () => {
+      loadProducts();
+
+      // Check for callback params
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('success') === 'true') {
+        alert('✅ Payment Successful! Order ID: ' + params.get('razorpay_order_id'));
+      } else if (params.get('cancel') === 'true') {
+        alert('❌ Payment Cancelled');
+      }
+    };
+  </script>
+</body>
+</html>
+
