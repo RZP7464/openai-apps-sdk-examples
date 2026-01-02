@@ -4,7 +4,9 @@ This repository contains comprehensive guides for deploying MCP servers to work 
 
 ## 📚 Available Guides
 
-### 1. [OpenAI Connector Apps Guide](./OPENAI_CONNECTOR_APPS_GUIDE.md) 🎯 **START HERE**
+### Deployment Guides
+
+#### 1. [OpenAI Connector Apps Guide](./OPENAI_CONNECTOR_APPS_GUIDE.md) 🎯 **START HERE**
 Complete reference for integrating MCP servers with ChatGPT, including:
 - What are OpenAI Connector Apps?
 - MCP server requirements
@@ -14,37 +16,90 @@ Complete reference for integrating MCP servers with ChatGPT, including:
 - Troubleshooting guide
 - Security best practices
 
-### 2. [Deployment Quick Reference](./DEPLOYMENT_QUICK_REFERENCE.md)
+#### 2. [Deployment Quick Reference](./DEPLOYMENT_QUICK_REFERENCE.md)
 Quick commands cheat sheet for both servers:
 - Side-by-side comparison of Pizzaz (Node.js) and Shopping Cart (Python)
 - Build and start commands
 - Environment variables
 - Common issues and fixes
 
-### 3. [Pizzaz Server Deployment (Node.js)](./DEPLOYMENT.md)
+#### 3. [Pizzaz Server Deployment (Node.js)](./DEPLOYMENT.md)
 Detailed guide for deploying the Pizzaz server:
 - Multiple demo widgets (map, carousel, albums, list, shop)
 - Static file serving
 - Render configuration
 - Complete troubleshooting section
 
-### 4. [Shopping Cart Server Deployment (Python)](./DEPLOYMENT_SHOPPING_CART.md)
+#### 4. [Shopping Cart Server Deployment (Python)](./DEPLOYMENT_SHOPPING_CART.md)
 Detailed guide for deploying the Shopping Cart server:
 - Stateful widget demonstration
 - Session management with `widgetSessionId`
 - Production recommendations
 - Cart state persistence patterns
 
-### 5. [Fixing Invalid Host Error](./FIXING_INVALID_HOST.md)
+#### 5. [Fixing Invalid Host Error](./FIXING_INVALID_HOST.md)
 Specific troubleshooting for the "Invalid Host" error:
 - Root causes
 - Solutions for Python and Node.js
 - Testing procedures
 - Production-ready configurations
 
+### Razorpay Integration Guides
+
+#### 6. [Razorpay Store Parser - Quick Start](./RAZORPAY_PARSER_QUICK_START.md) 🚀 **NEW!**
+Get started quickly with the Razorpay Store Parser API:
+- Quick setup instructions
+- Basic usage examples
+- Testing commands
+- Troubleshooting guide
+
+#### 7. [Razorpay Store Parser - Complete API Reference](./README_RAZORPAY_PARSER.md)
+Complete documentation for the Razorpay Store Parser API:
+- Detailed endpoint specifications (GET and POST)
+- Request/response schemas
+- Error handling
+- Code examples (cURL, JavaScript, Python)
+- Security considerations
+
+#### 8. [GET API Test Guide](./GET_API_TEST.md)
+Test the Razorpay Parser API directly in your browser:
+- Browser-based testing
+- Query parameter usage
+- Multiple testing methods
+- Pretty JSON formatting tips
+
+#### 9. [Implementation Summary](./IMPLEMENTATION_SUMMARY.md)
+Technical details of the Razorpay Parser implementation:
+- Architecture overview
+- Code changes made
+- Data extraction methodology
+- Performance notes
+- Future enhancement ideas
+
+#### 10. [Server Restart Instructions](./RESTART_SERVER_REQUIRED.md)
+Instructions for restarting the server after code changes:
+- Why restart is needed
+- Restart procedures
+- Development mode with auto-reload
+- Verification steps
+
+#### 11. [Razorpay Integration Overview](./RAZORPAY_INTEGRATION.md)
+General Razorpay integration documentation:
+- Payment gateway setup
+- Order creation
+- Payment verification
+- Webhook handling
+
 ## 🚀 Quick Start
 
-### If you're seeing "All tools are hidden":
+### For Razorpay Store Parser API:
+1. **Quick Start**: [Razorpay Parser Quick Start](./RAZORPAY_PARSER_QUICK_START.md)
+2. **Test in Browser**: [GET API Test Guide](./GET_API_TEST.md)
+3. **Full API Docs**: [Complete API Reference](./README_RAZORPAY_PARSER.md)
+
+### For OpenAI Connector Apps Deployment:
+
+#### If you're seeing "All tools are hidden":
 1. Check that `securitySchemes=[{"type": "noauth"}]` is in your tool definitions
 2. See: [Fixing Invalid Host Error](./FIXING_INVALID_HOST.md)
 
