@@ -29,7 +29,7 @@ function App() {
   const limit = 100;
 
   // API base URL
-  const baseUrl = "https://openai-apps-sdk-examples-2-7lml.onrender.com/";
+  const baseUrl = "https://openai-apps-sdk-examples-2-7lml.onrender.com";
 
   useEffect(() => {
     // Check for stored auth token
