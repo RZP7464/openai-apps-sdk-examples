@@ -1309,7 +1309,7 @@ const httpServer = createServer(
       return;
     }
 
-    // Razorpay Magic Checkout - Create Order and Generate Checkout URL
+    // Razorpay Magic Checkout - Create Order with Line Items (Enhanced Version)
     if (req.method === "POST" && url.pathname === "/api/razorpay/magic-checkout") {
       try {
         const body = await getRequestBody(req);
@@ -1423,6 +1423,112 @@ const httpServer = createServer(
         res.end(JSON.stringify({
           success: false,
           error: error.message || "Failed to create Magic Checkout"
+        }));
+      }
+      return;
+    }
+
+    // Proceed to Checkout - Create Razorpay Order with Line Items
+    if (req.method === "POST" && url.pathname === "/api/checkout/proceed") {
+      try {
+        const body = await getRequestBody(req);
+        const { cart, userId, sessionId, address } = JSON.parse(body);
+
+        if (!cart || !Array.isArray(cart) || cart.length === 0) {
+          res.writeHead(400, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "Cart items are required"
+          }));
+          return;
+        }
+
+        // Calculate line items total
+        const lineItemsTotal = cart.reduce((sum: number, item: any) => {
+          const itemPrice = Math.round((item.price || 0) * (item.quantity || 1) * 100); // Convert to paise
+          return sum + itemPrice;
+        }, 0);
+
+        // Format line items for Razorpay
+        const lineItems = cart.map((item: any) => ({
+          sku: item.product_id?.toString() || item.id?.toString() || "unknown",
+          variant_id: item.variant_id?.toString() || item.product_id?.toString() || "",
+          other_product_codes: item.other_product_codes || {},
+          price: Math.round((item.price || 0) * 100), // Convert to paise
+          offer_price: Math.round((item.offer_price || item.price || 0) * 100), // Convert to paise
+          tax_amount: Math.round((item.tax_amount || 0) * 100), // Convert to paise
+          quantity: item.quantity || 1,
+          name: item.title || item.name || "Product",
+          description: item.description || item.title || "Product",
+          weight: item.weight || 0,
+          dimensions: item.dimensions || {},
+          image_url: item.thumbnail || item.image_url || "",
+          product_url: item.product_url || "",
+          notes: item.notes || {}
+        }));
+
+        // Create order payload
+        const orderPayload = {
+          amount: lineItemsTotal,
+          currency: "INR",
+          receipt: `receipt_${sessionId}_${Date.now()}`,
+          notes: {
+            user_id: userId || "",
+            session_id: sessionId || "",
+            address: JSON.stringify(address || {})
+          },
+          line_items_total: lineItemsTotal,
+          line_items: lineItems
+        };
+
+        console.log('Creating Razorpay order with payload:', JSON.stringify(orderPayload, null, 2));
+
+        // Create Basic Auth header
+        const razorpayAuth = Buffer.from(
+          `${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`
+        ).toString('base64');
+
+        // Call Razorpay API
+        const orderResponse = await fetch('https://api.razorpay.com/v1/orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Basic ${razorpayAuth}`
+          },
+          body: JSON.stringify(orderPayload)
+        });
+
+        if (!orderResponse.ok) {
+          const errorData = await orderResponse.text();
+          console.error('Razorpay API Error:', errorData);
+          throw new Error(`Razorpay API Error: ${orderResponse.status} - ${errorData}`);
+        }
+
+        const orderData = await orderResponse.json();
+        console.log('Razorpay order created successfully:', orderData);
+
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: true,
+          order: orderData,
+          message: "Razorpay order created successfully with line items"
+        }));
+
+      } catch (error: any) {
+        console.error("Error creating Razorpay order for checkout:", error);
+        res.writeHead(500, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: false,
+          error: error.message || "Failed to create order"
         }));
       }
       return;
@@ -1775,11 +1881,11 @@ const httpServer = createServer(
     }
 
     // Handle OPTIONS for Razorpay endpoints
-    if (req.method === "OPTIONS" && url.pathname.startsWith("/api/razorpay/")) {
+    if (req.method === "OPTIONS" && (url.pathname.startsWith("/api/razorpay/") || url.pathname.startsWith("/api/checkout/"))) {
       res.writeHead(204, {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "content-type",
+        "Access-Control-Allow-Headers": "content-type, authorization",
       });
       res.end();
       return;

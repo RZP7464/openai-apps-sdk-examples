@@ -26,6 +26,9 @@ function App() {
     city: "",
     zip: ""
   });
+  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
+  const [orderDetails, setOrderDetails] = useState(null);
+  const [checkoutError, setCheckoutError] = useState("");
   const limit = 100;
 
   // API base URL
@@ -281,6 +284,68 @@ function App() {
     setSkip(0); // Reset to first page when searching
   };
 
+  const handleProceedToCheckout = async () => {
+    setIsProcessingCheckout(true);
+    setCheckoutError("");
+    
+    try {
+      const sessionId = window.openai?.widgetSessionId || Date.now().toString();
+      
+      // Prepare cart data with proper structure for line items
+      const cartData = cart.map(item => ({
+        product_id: item.id,
+        title: item.title,
+        price: item.price,
+        quantity: 1,
+        thumbnail: item.thumbnail,
+        description: item.title,
+        offer_price: item.price,
+        tax_amount: 0
+      }));
+
+      const requestBody = {
+        cart: cartData,
+        userId: userId,
+        sessionId: sessionId,
+        address: address
+      };
+
+      console.log('Creating Razorpay order...', requestBody);
+
+      const response = await fetch(`${baseUrl}/api/checkout/proceed`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log('Order created successfully:', data);
+        setOrderDetails(data.order);
+        
+        // Clear cart after successful order creation
+        await fetch(`${baseUrl}/api/cart/clear`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: userId })
+        });
+        setCart([]);
+        
+      } else {
+        console.error('Order creation failed:', data.error);
+        setCheckoutError(data.error || 'Failed to create order');
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      setCheckoutError('Network error. Please try again.');
+    } finally {
+      setIsProcessingCheckout(false);
+    }
+  };
+
   // Login/Signup page
   if (!isLoggedIn) {
     return (
@@ -415,6 +480,114 @@ function App() {
     );
   }
 
+  // Order Success Screen
+  if (orderDetails) {
+    return (
+      <div className="antialiased w-full text-black px-4 pb-4 border border-black/10 rounded-2xl sm:rounded-3xl overflow-hidden bg-white">
+        <div className="max-w-full">
+          <div className="flex flex-col items-center gap-2 border-b border-black/5 py-6">
+            <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+              <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div className="text-xl sm:text-2xl font-semibold">Order Created Successfully!</div>
+            <div className="text-sm text-black/60 text-center">
+              Your Razorpay order has been created with line items
+            </div>
+          </div>
+          
+          <div className="py-4 space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="text-xs text-blue-600 font-medium mb-1">ORDER ID</div>
+              <div className="font-mono text-sm sm:text-base font-semibold text-blue-900 break-all">
+                {orderDetails.id}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="text-xs text-black/60 mb-1">Amount</div>
+                <div className="font-semibold text-sm">₹{(orderDetails.amount / 100).toFixed(2)}</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="text-xs text-black/60 mb-1">Currency</div>
+                <div className="font-semibold text-sm">{orderDetails.currency}</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="text-xs text-black/60 mb-1">Status</div>
+                <div className="font-semibold text-sm capitalize">{orderDetails.status}</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="text-xs text-black/60 mb-1">Receipt</div>
+                <div className="font-semibold text-sm text-xs truncate">{orderDetails.receipt}</div>
+              </div>
+            </div>
+
+            {orderDetails.notes && (
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="text-xs text-black/60 mb-2 font-medium">Delivery Address</div>
+                <div className="text-sm space-y-1">
+                  {(() => {
+                    try {
+                      const addr = JSON.parse(orderDetails.notes.address);
+                      return (
+                        <>
+                          <div className="font-medium">{addr.name}</div>
+                          <div className="text-black/70">{addr.street}</div>
+                          <div className="text-black/70">{addr.city}, {addr.zip}</div>
+                          <div className="text-black/70">{addr.phone}</div>
+                        </>
+                      );
+                    } catch (e) {
+                      return <div className="text-black/70">Address information available</div>;
+                    }
+                  })()}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <div className="text-xs text-yellow-800 font-medium mb-1">💡 Next Steps</div>
+              <ul className="text-xs text-yellow-900 space-y-1 ml-4 list-disc">
+                <li>Use this Order ID to initialize Razorpay Checkout</li>
+                <li>Complete the payment process</li>
+                <li>Verify payment signature after completion</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="border-t border-black/5 pt-3 space-y-2">
+            <Button 
+              color="primary" 
+              variant="solid" 
+              size="md" 
+              block
+              onClick={() => {
+                setOrderDetails(null);
+                setShowAddressForm(false);
+                setAddress({ name: "", phone: "", street: "", city: "", zip: "" });
+              }}
+            >
+              Place Another Order
+            </Button>
+            <Button 
+              color="secondary" 
+              variant="outline" 
+              size="sm" 
+              block
+              onClick={() => {
+                navigator.clipboard.writeText(orderDetails.id);
+              }}
+            >
+              Copy Order ID
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (showAddressForm) {
     return (
       <div className="antialiased w-full text-black px-4 pb-4 border border-black/10 rounded-2xl sm:rounded-3xl overflow-hidden bg-white">
@@ -428,7 +601,11 @@ function App() {
               color="secondary" 
               variant="ghost" 
               size="sm"
-              onClick={() => setShowAddressForm(false)}
+              onClick={() => {
+                setShowAddressForm(false);
+                setCheckoutError("");
+              }}
+              disabled={isProcessingCheckout}
             >
               Back
             </Button>
@@ -442,6 +619,7 @@ function App() {
                 onChange={(e) => handleAddressChange('name', e.target.value)}
                 className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="John Doe"
+                disabled={isProcessingCheckout}
               />
             </div>
             <div>
@@ -452,6 +630,7 @@ function App() {
                 onChange={(e) => handleAddressChange('phone', e.target.value)}
                 className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="+1 234 567 8900"
+                disabled={isProcessingCheckout}
               />
             </div>
             <div>
@@ -462,6 +641,7 @@ function App() {
                 onChange={(e) => handleAddressChange('street', e.target.value)}
                 className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="123 Main Street"
+                disabled={isProcessingCheckout}
               />
             </div>
             <div className="flex gap-3">
@@ -473,6 +653,7 @@ function App() {
                   onChange={(e) => handleAddressChange('city', e.target.value)}
                   className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="New York"
+                  disabled={isProcessingCheckout}
                 />
               </div>
               <div className="w-32">
@@ -483,10 +664,18 @@ function App() {
                   onChange={(e) => handleAddressChange('zip', e.target.value)}
                   className="w-full px-3 py-2 border border-black/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="10001"
+                  disabled={isProcessingCheckout}
                 />
               </div>
             </div>
           </div>
+          
+          {checkoutError && (
+            <div className="mb-3 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg border border-red-200">
+              {checkoutError}
+            </div>
+          )}
+          
           <div className="border-t border-black/5 pt-3">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium">Order Total</span>
@@ -498,22 +687,23 @@ function App() {
                 variant="solid" 
                 size="md" 
                 block
-                onClick={() => {
-                  // Open checkout page in new window
-                  const baseUrl = window.location.origin;
-                  const sessionId = window.openai?.widgetSessionId || Date.now().toString();
-                  
-                  const checkoutUrl = `${baseUrl}/checkout?` +
-                    `cart=${encodeURIComponent(JSON.stringify(cart))}` +
-                    `&userId=${encodeURIComponent(userId)}` +
-                    `&sessionId=${encodeURIComponent(sessionId)}` +
-                    `&address=${encodeURIComponent(JSON.stringify(address))}`;
-                  
-                  window.open(checkoutUrl, '_blank', 'width=700,height=900');
-                }}
+                onClick={handleProceedToCheckout}
+                disabled={isProcessingCheckout}
               >
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                Proceed to Checkout
+                {isProcessingCheckout ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Creating Order...
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="h-4 w-4 mr-2" />
+                    Proceed to Checkout
+                  </>
+                )}
               </Button>
             ) : (
               <Button color="primary" variant="solid" size="md" block disabled>
