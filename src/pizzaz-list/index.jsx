@@ -566,7 +566,7 @@ function App() {
           </div>
 
           <div className="border-t border-black/5 pt-3 space-y-2">
-            <form method="POST" action="https://api.razorpay.com/v1/checkout/hosted">
+            <form method="POST" action="https://api.razorpay.com/v1/checkout/hosted" target="_blank">
               <input type="hidden" name="key_id" value="rzp_live_I51bxdyuOOsDA7" />
               <input type="hidden" name="amount" value={orderDetails.amount} />
               <input type="hidden" name="currency" value={orderDetails.currency} />
