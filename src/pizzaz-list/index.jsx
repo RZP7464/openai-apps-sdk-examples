@@ -566,35 +566,19 @@ function App() {
           </div>
 
           <div className="border-t border-black/5 pt-3 space-y-2">
-            <form method="POST" action="https://api.razorpay.com/v1/checkout/hosted" target="_blank">
-              <input type="hidden" name="key_id" value="rzp_live_I51bxdyuOOsDA7" />
-              <input type="hidden" name="amount" value={orderDetails.amount} />
-              <input type="hidden" name="currency" value={orderDetails.currency} />
-              <input type="hidden" name="order_id" value={orderDetails.id} />
-              <input type="hidden" name="name" value="Smartphone Store" />
-              <input type="hidden" name="description" value="Order Payment" />
-              <input type="hidden" name="image" value="https://persistent.oaistatic.com/pizzaz/title.png" />
-              {parsedAddress && (
-                <>
-                  <input type="hidden" name="prefill[name]" value={parsedAddress.name} />
-                  <input type="hidden" name="prefill[contact]" value={parsedAddress.phone} />
-                  <input type="hidden" name="prefill[email]" value={userEmail} />
-                  <input type="hidden" name="notes[shipping address]" value={`${parsedAddress.street}, ${parsedAddress.city}, ${parsedAddress.zip}`} />
-                </>
-              )}
-              <input type="hidden" name="callback_url" value={`${baseUrl}/payment-callback`} />
-              <input type="hidden" name="cancel_url" value={`${baseUrl}/payment-cancel`} />
-              
-              <Button 
-                color="primary" 
-                variant="solid" 
-                size="md" 
-                block
-                type="submit"
-              >
-                💳 Pay Now - ₹{(orderDetails.amount / 100).toFixed(2)}
-              </Button>
-            </form>
+            <Button 
+              color="primary" 
+              variant="solid" 
+              size="md" 
+              block
+              onClick={() => {
+                // Redirect to checkout page with order ID
+                const checkoutUrl = `${baseUrl}/checkout?orderId=${orderDetails.id}`;
+                window.open(checkoutUrl, '_blank');
+              }}
+            >
+              💳 Pay Now - ₹{(orderDetails.amount / 100).toFixed(2)}
+            </Button>
             
             <Button 
               color="secondary" 

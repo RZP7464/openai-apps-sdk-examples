@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Order Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen py-8 px-4">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-semibold">Order Management</h1>
+                        <p class="text-gray-600">View and manage all orders</p>
+                    </div>
+                    <button onclick="refreshOrders()" 
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow-sm p-4">
+                    <div class="text-sm text-gray-600 mb-1">Total Orders</div>
+                    <div class="text-2xl font-bold" id="stat-total">0</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm p-4">
+                    <div class="text-sm text-gray-600 mb-1">Created</div>
+                    <div class="text-2xl font-bold text-yellow-600" id="stat-created">0</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm p-4">
+                    <div class="text-sm text-gray-600 mb-1">Paid</div>
+                    <div class="text-2xl font-bold text-green-600" id="stat-paid">0</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm p-4">
+                    <div class="text-sm text-gray-600 mb-1">Total Revenue</div>
+                    <div class="text-2xl font-bold text-blue-600" id="stat-revenue">₹0</div>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading" class="bg-white rounded-lg shadow-sm p-8 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading orders...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="error" class="bg-white rounded-lg shadow-sm p-8 text-center hidden">
+                <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </div>
+                <h2 class="text-xl font-semibold mb-2">Error Loading Orders</h2>
+                <p class="text-gray-600 mb-4" id="error-message"></p>
+                <button onclick="refreshOrders()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Try Again
+                </button>
+            </div>
+
+            <!-- Orders Table -->
+            <div id="orders-container" class="bg-white rounded-lg shadow-sm overflow-hidden hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-tbody" class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Empty State -->
+                <div id="empty-state" class="p-8 text-center hidden">
+                    <div class="text-gray-400 mb-2">
+                        <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <p class="text-gray-600">No orders found</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const baseUrl = 'https://openai-apps-sdk-examples-2-7lml.onrender.com';
+        
+        async function loadOrders() {
+            try {
+                document.getElementById('loading').classList.remove('hidden');
+                document.getElementById('error').classList.add('hidden');
+                document.getElementById('orders-container').classList.add('hidden');
+
+                const response = await fetch(`${baseUrl}/api/admin/orders`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    showError(data.error || 'Failed to load orders');
+                    return;
+                }
+
+                displayOrders(data.orders);
+                updateStats(data.orders);
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                showError('Network error. Please try again.');
+            }
+        }
+
+        function updateStats(orders) {
+            const total = orders.length;
+            const created = orders.filter(o => o.status === 'created').length;
+            const paid = orders.filter(o => o.status === 'paid').length;
+            const revenue = orders
+                .filter(o => o.status === 'paid')
+                .reduce((sum, o) => sum + o.amount, 0);
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-created').textContent = created;
+            document.getElementById('stat-paid').textContent = paid;
+            document.getElementById('stat-revenue').textContent = `₹${(revenue / 100).toFixed(2)}`;
+        }
+
+        function displayOrders(orders) {
+            const tbody = document.getElementById('orders-tbody');
+            const emptyState = document.getElementById('empty-state');
+            
+            if (orders.length === 0) {
+                emptyState.classList.remove('hidden');
+                tbody.innerHTML = '';
+            } else {
+                emptyState.classList.add('hidden');
+                tbody.innerHTML = orders.map(order => {
+                    const address = parseAddress(order.notes?.address);
+                    const items = order.line_items ? JSON.parse(order.line_items).length : 0;
+                    const date = new Date(order.created_at * 1000).toLocaleString();
+                    
+                    return `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-mono text-blue-600">${order.razorpay_order_id.substring(0, 20)}...</div>
+                                <div class="text-xs text-gray-500">${order.receipt}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm">${order.username || 'N/A'}</div>
+                                <div class="text-xs text-gray-500">${order.user_email || ''}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-semibold">₹${(order.amount / 100).toFixed(2)}</div>
+                                <div class="text-xs text-gray-500">${order.currency}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                ${getStatusBadge(order.status)}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                ${date}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                ${items} items
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-600">
+                                ${address ? `
+                                    <div class="max-w-xs">
+                                        <div class="font-medium">${address.name}</div>
+                                        <div class="text-xs">${address.street}</div>
+                                        <div class="text-xs">${address.city}, ${address.zip}</div>
+                                        <div class="text-xs">${address.phone}</div>
+                                    </div>
+                                ` : 'N/A'}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('orders-container').classList.remove('hidden');
+        }
+
+        function getStatusBadge(status) {
+            const badges = {
+                'created': '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Created</span>',
+                'paid': '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Paid</span>',
+                'attempted': '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Attempted</span>',
+                'failed': '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Failed</span>'
+            };
+            return badges[status] || `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">${status}</span>`;
+        }
+
+        function parseAddress(addressStr) {
+            try {
+                return JSON.parse(addressStr);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error').classList.remove('hidden');
+        }
+
+        function refreshOrders() {
+            loadOrders();
+        }
+
+        // Load orders on page load
+        loadOrders();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(loadOrders, 30000);
+    </script>
+</body>
+</html>
+

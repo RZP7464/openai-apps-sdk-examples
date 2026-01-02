@@ -1,456 +1,361 @@
-# Razorpay Magic Checkout Integration
+# Razorpay Magic Checkout API Documentation
 
-## 🎯 Overview
+## GET /api/razorpay/magic-checkout
 
-This API endpoint creates a Razorpay order with line items and generates a Magic Checkout URL/form for seamless checkout experience.
+Returns a fully functional HTML page with Razorpay Magic Checkout embedded, ready to accept payments.
 
----
+### Endpoint
 
-## 📋 API Endpoint
-
-**POST** `/api/razorpay/magic-checkout`
-
-### Request Body
-
-```json
-{
-  "products": [
-    {
-      "id": "li_RyCva0f2VLjTIW",
-      "name": "Samsung Galaxy S10",
-      "description": "The Samsung Galaxy S10...",
-      "selling_price": 69999,
-      "discounted_price": 69999,
-      "quantity": 1,
-      "images": ["https://..."],
-      "sku": "SKU001",
-      "variant_id": "VAR001",
-      "tax_amount": 0
-    }
-  ],
-  "customer": {
-    "name": "John Doe",
-    "phone": "+919876543210",
-    "email": "john@example.com"
-  },
-  "callbacks": {
-    "success": "https://yoursite.com/success",
-    "cancel": "https://yoursite.com/cancel"
-  }
-}
+```
+GET http://localhost:8000/api/razorpay/magic-checkout
 ```
 
-### Parameters
+### Query Parameters
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| products | Array | Yes | Array of product objects |
-| products[].selling_price | Number | Yes | Price in paise (₹699.99 = 69999) |
-| products[].name | String | Yes | Product name |
-| products[].quantity | Number | No | Quantity (default: 1) |
-| products[].id | String | No | Product/SKU ID |
-| products[].images | Array | No | Product image URLs |
-| customer | Object | No | Customer information |
-| customer.name | String | No | Customer name |
-| customer.phone | String | No | Phone with country code |
-| customer.email | String | No | Customer email |
-| callbacks | Object | No | Redirect URLs |
-| callbacks.success | String | No | Success redirect URL |
-| callbacks.cancel | String | No | Cancel redirect URL |
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `orderId` | string | **Yes** | - | Razorpay order ID obtained from creating an order |
+| `name` | string | No | "Razorpay Magic Checkout" | Page title |
+| `businessName` | string | No | "Acme Corp" | Business name displayed on the checkout |
+| `customerName` | string | No | "Guest Customer" | Customer name for prefill |
+| `customerEmail` | string | No | "" | Customer email for prefill |
+| `customerPhone` | string | No | "" | Customer phone for prefill (10 digits) |
+| `couponCode` | string | No | "" | Coupon code to auto-apply |
+| `callbackUrl` | string | No | "https://example.com/payment-success" | Success callback URL |
+| `showCoupons` | string | No | "true" | Show coupon widget ("true" or "false") |
+| `address` | string | No | "" | Customer address for notes |
 
----
+### Usage Examples
 
-## ✅ Success Response
-
-```json
-{
-  "success": true,
-  "order": {
-    "id": "order_RyuBRx1fcNEurR",
-    "entity": "order",
-    "amount": 69999,
-    "currency": "INR",
-    "receipt": "receipt_1767184532",
-    "status": "created",
-    "line_items": [...]
-  },
-  "checkout_url": "https://api.razorpay.com/v1/checkout/hosted",
-  "form_data": {
-    "checkout[key]": "rzp_live_...",
-    "checkout[order_id]": "order_...",
-    "checkout[name]": "John Doe",
-    ...
-  },
-  "html_form": "<form id='razorpay-magic-checkout' ...>...</form>"
-}
-```
-
----
-
-## 🚀 Usage Examples
-
-### Example 1: Basic Checkout
-
-```javascript
-const response = await fetch('http://localhost:8000/api/razorpay/magic-checkout', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    products: [
-      {
-        id: "prod_001",
-        name: "Samsung Galaxy S10",
-        selling_price: 69999,  // ₹699.99
-        quantity: 1,
-        images: ["https://example.com/image.jpg"]
-      }
-    ],
-    customer: {
-      name: "John Doe",
-      phone: "+919876543210",
-      email: "john@example.com"
-    },
-    callbacks: {
-      success: "https://mysite.com/order-success",
-      cancel: "https://mysite.com/cart"
-    }
-  })
-});
-
-const data = await response.json();
-
-if (data.success) {
-  // Option 1: Redirect to checkout_url with form POST
-  // Option 2: Use the html_form to auto-submit
-  document.body.innerHTML = data.html_form;
-}
-```
-
-### Example 2: Multiple Products
-
-```javascript
-const products = [
-  {
-    name: "Samsung Galaxy S10",
-    selling_price: 69999,
-    quantity: 1
-  },
-  {
-    name: "iPhone Case",
-    selling_price: 2999,
-    quantity: 2
-  }
-];
-
-const response = await fetch('http://localhost:8000/api/razorpay/magic-checkout', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ products })
-});
-```
-
-### Example 3: From Parsed Store Products
-
-```javascript
-// First, parse a Razorpay store
-const storeResponse = await fetch('http://localhost:8000/api/razorpay/parse-store?url=https://pages.razorpay.com/stores/st_RvP3FIXbUltGLM');
-const storeData = await storeResponse.json();
-
-// Select products from the store
-const selectedProducts = storeData.products.slice(0, 3).map(p => ({
-  id: p.id,
-  name: p.name,
-  selling_price: p.selling_price,
-  discounted_price: p.discounted_price,
-  quantity: 1,
-  images: p.images
-}));
-
-// Create checkout
-const checkoutResponse = await fetch('http://localhost:8000/api/razorpay/magic-checkout', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    products: selectedProducts,
-    customer: {
-      name: "Customer Name",
-      phone: "+919876543210"
-    }
-  })
-});
-
-const checkoutData = await checkoutResponse.json();
-// Redirect to Magic Checkout
-window.location.href = checkoutData.checkout_url;
-```
-
----
-
-## 🔧 Complete Workflow
-
-### Step 1: Parse Store (Optional)
+#### Basic Usage (Minimum Required)
 ```bash
-curl "http://localhost:8000/api/razorpay/parse-store?url=https://pages.razorpay.com/stores/st_XXXXX"
+curl "http://localhost:8000/api/razorpay/magic-checkout?orderId=order_EKwxwAgItmXXXX"
 ```
 
-### Step 2: Create Magic Checkout
+#### Full Example with All Parameters
 ```bash
-curl -X POST http://localhost:8000/api/razorpay/magic-checkout \
+curl "http://localhost:8000/api/razorpay/magic-checkout?orderId=order_EKwxwAgItmXXXX&businessName=MyStore&customerName=John%20Doe&customerEmail=john@example.com&customerPhone=9876543210&couponCode=SAVE500&callbackUrl=https://mystore.com/success&showCoupons=true&address=123%20Main%20Street"
+```
+
+#### URL Encoded Example
+```
+http://localhost:8000/api/razorpay/magic-checkout?
+  orderId=order_EKwxwAgItmXXXX
+  &businessName=MyStore
+  &customerName=John%20Doe
+  &customerEmail=john%40example.com
+  &customerPhone=9876543210
+  &couponCode=SAVE500
+  &callbackUrl=https%3A%2F%2Fmystore.com%2Fsuccess
+  &showCoupons=true
+  &address=123%20Main%20Street
+```
+
+### Response
+
+Returns a complete HTML page with:
+- ✅ Razorpay Magic Checkout script embedded
+- ✅ Beautiful, responsive UI
+- ✅ Pre-configured payment button
+- ✅ Auto-opens checkout modal on button click
+- ✅ Pre-filled customer information
+- ✅ Auto-applied coupon (if provided)
+
+### Example Response HTML
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Razorpay Magic Checkout</title>
+    <style>
+        /* Beautiful gradient background and styling */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🛒</div>
+        <h1>Acme Corp</h1>
+        <p>Click the button below to proceed with payment</p>
+        <button id="rzp-button1">Pay Now</button>
+    </div>
+
+    <script src="https://checkout.razorpay.com/v1/magic-checkout.js"></script>
+    <script>
+        var options = {
+            "key": "YOUR_KEY_ID",
+            "one_click_checkout": true,
+            "name": "Acme Corp",
+            "order_id": "order_EKwxwAgItmXXXX",
+            "show_coupons": true,
+            "callback_url": "https://example.com/success",
+            "redirect": "true",
+            "prefill": {
+                "name": "John Doe",
+                "email": "john@example.com",
+                "contact": "9876543210",
+                "coupon_code": "SAVE500"
+            },
+            "notes": {
+                "address": "123 Main Street"
+            }
+        };
+        
+        var rzp1 = new Razorpay(options);
+        document.getElementById('rzp-button1').onclick = function(e){
+            rzp1.open();
+            e.preventDefault();
+        }
+    </script>
+</body>
+</html>
+```
+
+## Complete Workflow
+
+### Step 1: Create a Razorpay Order
+
+First, create an order using the Razorpay API or your backend:
+
+```bash
+curl -X POST http://localhost:8000/api/checkout/proceed \
   -H "Content-Type: application/json" \
   -d '{
-    "products": [{
-      "name": "Product Name",
-      "selling_price": 50000,
-      "quantity": 1
-    }],
-    "customer": {
+    "cart": [
+      {
+        "product_id": 1,
+        "title": "Product Name",
+        "price": 100,
+        "quantity": 2
+      }
+    ],
+    "userId": "user123",
+    "sessionId": "session456",
+    "address": {
       "name": "John Doe",
-      "phone": "+919876543210"
+      "phone": "9876543210",
+      "street": "123 Main St",
+      "city": "Mumbai",
+      "zip": "400001"
     }
   }'
 ```
 
-### Step 3: Use Response to Open Checkout
-
-**Option A: HTML Form (Auto-submit)**
-```javascript
-document.body.innerHTML = response.html_form;
-```
-
-**Option B: Manual Form Submission**
-```javascript
-const form = document.createElement('form');
-form.method = 'POST';
-form.action = response.checkout_url;
-
-Object.entries(response.form_data).forEach(([key, value]) => {
-  const input = document.createElement('input');
-  input.type = 'hidden';
-  input.name = key;
-  input.value = value;
-  form.appendChild(input);
-});
-
-document.body.appendChild(form);
-form.submit();
-```
-
----
-
-## 💰 Price Formatting
-
-Razorpay uses **paise** (smallest currency unit):
-- ₹1.00 = 100 paise
-- ₹699.99 = 69999 paise
-- ₹10,000 = 1000000 paise
-
-```javascript
-// Convert rupees to paise
-const priceInPaise = priceInRupees * 100;
-
-// Convert paise to rupees
-const priceInRupees = priceInPaise / 100;
-```
-
----
-
-## ❌ Error Responses
-
-### 400 - Missing Products
+Response:
 ```json
 {
-  "success": false,
-  "error": "Products array is required"
+  "success": true,
+  "order": {
+    "id": "order_EKwxwAgItmXXXX",
+    "amount": 20000,
+    "currency": "INR",
+    "status": "created"
+  }
 }
 ```
 
-### 500 - Razorpay API Error
-```json
-{
-  "success": false,
-  "error": "Razorpay API Error: 401 - Invalid credentials"
-}
+### Step 2: Direct User to Magic Checkout Page
+
+Use the order ID from step 1 to redirect the user:
+
+```html
+<!-- In your frontend -->
+<a href="http://localhost:8000/api/razorpay/magic-checkout?orderId=order_EKwxwAgItmXXXX&customerName=John%20Doe&customerPhone=9876543210">
+  Proceed to Payment
+</a>
 ```
 
----
+Or redirect programmatically:
 
-## 🔐 Configuration
+```javascript
+const orderId = 'order_EKwxwAgItmXXXX';
+const checkoutUrl = `http://localhost:8000/api/razorpay/magic-checkout?` +
+  `orderId=${orderId}` +
+  `&businessName=${encodeURIComponent('My Store')}` +
+  `&customerName=${encodeURIComponent('John Doe')}` +
+  `&customerEmail=${encodeURIComponent('john@example.com')}` +
+  `&customerPhone=9876543210` +
+  `&callbackUrl=${encodeURIComponent('https://mystore.com/payment-success')}`;
 
-Set these environment variables:
+window.location.href = checkoutUrl;
+```
+
+### Step 3: User Completes Payment
+
+- User clicks "Pay Now" button
+- Razorpay Magic Checkout modal opens
+- User completes payment
+- User is redirected to `callbackUrl` with payment details
+
+### Step 4: Handle Payment Callback
+
+When payment is successful, Razorpay redirects to your callback URL with payment details:
+
+```
+https://mystore.com/payment-success?
+  razorpay_payment_id=pay_XXXXX
+  &razorpay_order_id=order_EKwxwAgItmXXXX
+  &razorpay_signature=XXXXXXXX
+```
+
+Verify the payment on your backend:
 
 ```bash
-RAZORPAY_KEY_ID=rzp_live_XXXXX
-RAZORPAY_KEY_SECRET=your_secret_key
+curl -X POST http://localhost:8000/api/razorpay/verify-payment \
+  -H "Content-Type: application/json" \
+  -d '{
+    "razorpay_order_id": "order_EKwxwAgItmXXXX",
+    "razorpay_payment_id": "pay_XXXXX",
+    "razorpay_signature": "XXXXXXXX"
+  }'
 ```
 
-Get your keys from: [Razorpay Dashboard](https://dashboard.razorpay.com/app/keys)
+## Integration Examples
 
----
+### React/Next.js
 
-## 🎨 Frontend Integration Example
+```typescript
+import { useRouter } from 'next/router';
+
+function CheckoutButton({ orderId, customerData }) {
+  const router = useRouter();
+  
+  const handleCheckout = () => {
+    const params = new URLSearchParams({
+      orderId: orderId,
+      businessName: 'My Store',
+      customerName: customerData.name,
+      customerEmail: customerData.email,
+      customerPhone: customerData.phone,
+      callbackUrl: `${window.location.origin}/payment-success`
+    });
+    
+    router.push(`http://localhost:8000/api/razorpay/magic-checkout?${params}`);
+  };
+  
+  return <button onClick={handleCheckout}>Pay Now</button>;
+}
+```
+
+### Plain HTML/JavaScript
 
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Razorpay Checkout</title>
-</head>
 <body>
-  <button onclick="openCheckout()">Buy Now</button>
-
+  <button onclick="proceedToCheckout()">Checkout</button>
+  
   <script>
-    async function openCheckout() {
-      const response = await fetch('http://localhost:8000/api/razorpay/magic-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          products: [{
-            name: "Product Name",
-            selling_price: 50000,
-            quantity: 1
-          }],
-          customer: {
-            name: "John Doe",
-            phone: "+919876543210"
-          },
-          callbacks: {
-            success: window.location.origin + '/success',
-            cancel: window.location.origin + '/cart'
-          }
-        })
-      });
-
-      const data = await response.json();
+    function proceedToCheckout() {
+      const orderId = 'order_EKwxwAgItmXXXX';
+      const url = new URL('http://localhost:8000/api/razorpay/magic-checkout');
       
-      if (data.success) {
-        // Auto-submit form to open Magic Checkout
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = data.html_form;
-        document.body.appendChild(tempDiv);
-      } else {
-        alert('Error: ' + data.error);
-      }
+      url.searchParams.append('orderId', orderId);
+      url.searchParams.append('businessName', 'My Store');
+      url.searchParams.append('customerName', 'John Doe');
+      url.searchParams.append('customerEmail', 'john@example.com');
+      url.searchParams.append('customerPhone', '9876543210');
+      url.searchParams.append('callbackUrl', 'https://mystore.com/success');
+      
+      window.location.href = url.toString();
     }
   </script>
 </body>
 </html>
 ```
 
----
+### Backend Integration (Node.js/Express)
 
-## 🔄 Complete E-commerce Flow
-
-### 1. Browse Products
 ```javascript
-// Get products from store
-const store = await fetch('/api/razorpay/parse-store?url=STORE_URL');
-const products = await store.json();
-```
-
-### 2. Add to Cart
-```javascript
-// User selects products
-const cart = [
-  { ...products[0], quantity: 1 },
-  { ...products[2], quantity: 2 }
-];
-```
-
-### 3. Checkout
-```javascript
-// Create checkout
-const checkout = await fetch('/api/razorpay/magic-checkout', {
-  method: 'POST',
-  body: JSON.stringify({ 
-    products: cart,
-    customer: userInfo,
-    callbacks: redirectUrls
-  })
+app.get('/checkout/:orderId', (req, res) => {
+  const { orderId } = req.params;
+  const user = req.user; // From session/JWT
+  
+  const checkoutUrl = `http://localhost:8000/api/razorpay/magic-checkout?` +
+    `orderId=${orderId}` +
+    `&businessName=My%20Store` +
+    `&customerName=${encodeURIComponent(user.name)}` +
+    `&customerEmail=${encodeURIComponent(user.email)}` +
+    `&customerPhone=${user.phone}` +
+    `&callbackUrl=${encodeURIComponent('https://myapp.com/payment-success')}`;
+  
+  res.redirect(checkoutUrl);
 });
 ```
 
-### 4. Payment
-```javascript
-// Open Magic Checkout
-document.body.innerHTML = checkout.html_form;
-```
+## Features
 
-### 5. Handle Callback
-```javascript
-// On success URL
-const params = new URLSearchParams(window.location.search);
-const razorpay_payment_id = params.get('razorpay_payment_id');
-const razorpay_order_id = params.get('razorpay_order_id');
-```
+### ✨ Beautiful UI
+- Modern gradient background
+- Responsive design
+- Professional styling
+- Mobile-friendly
 
----
+### 🚀 One-Click Checkout
+- Pre-filled customer information
+- Auto-applied coupons
+- Seamless payment experience
 
-## 📊 Response Fields Explained
+### 🔒 Secure
+- Official Razorpay Magic Checkout script
+- Signature verification
+- PCI DSS compliant
 
-| Field | Description |
-|-------|-------------|
-| `success` | Boolean indicating API call success |
-| `order` | Razorpay order object with full details |
-| `order.id` | Order ID to track the order |
-| `order.amount` | Total amount in paise |
-| `checkout_url` | URL to POST form data to |
-| `form_data` | Key-value pairs for form fields |
-| `html_form` | Ready-to-use HTML form with auto-submit |
+### 🎯 Customizable
+- Custom business name
+- Custom callback URLs
+- Toggle coupon widget
+- Custom page title
 
----
+## Error Handling
 
-## 🔥 Live API Endpoint
-
-```
-https://openai-apps-sdk-examples-2-7lml.onrender.com/api/razorpay/magic-checkout
-```
-
-Test it now:
+### Missing Order ID
 ```bash
-curl -X POST https://openai-apps-sdk-examples-2-7lml.onrender.com/api/razorpay/magic-checkout \
-  -H "Content-Type: application/json" \
-  -d '{
-    "products": [{
-      "name": "Test Product",
-      "selling_price": 10000,
-      "quantity": 1
-    }]
-  }'
+curl "http://localhost:8000/api/razorpay/magic-checkout"
 ```
 
+Response (400):
+```json
+{
+  "success": false,
+  "error": "orderId is required in query parameters"
+}
+```
+
+### Invalid Order ID
+If the order ID is invalid, Razorpay will show an error in the checkout modal.
+
+## Testing
+
+### Test with Sample Order
+
+```bash
+# 1. Create a test order (replace with your test data)
+ORDER_ID="order_test_12345"
+
+# 2. Open in browser
+open "http://localhost:8000/api/razorpay/magic-checkout?orderId=$ORDER_ID&customerName=Test%20User&customerEmail=test@example.com&customerPhone=9999999999"
+```
+
+## Notes
+
+- 📝 The `orderId` must be created using Razorpay's Orders API first
+- 📝 Use Razorpay test keys for testing
+- 📝 The callback URL will receive payment details after successful payment
+- 📝 All query parameters should be URL encoded
+- 📝 Phone numbers should be 10 digits for Indian numbers
+
+## Support
+
+For issues or questions:
+- Razorpay Docs: https://razorpay.com/docs/payments/magic-checkout/
+- API Support: Contact your backend team
+- Razorpay Support: https://razorpay.com/support/
+
 ---
 
-## 💡 Pro Tips
-
-1. **Test Mode**: Use test keys for development
-2. **Price Validation**: Always validate prices server-side
-3. **Stock Check**: Verify product availability before checkout
-4. **Customer Data**: Pre-fill customer data for better UX
-5. **Callback URLs**: Use HTTPS URLs in production
-6. **Order Tracking**: Store `order.id` in your database
-
----
-
-## 🆘 Troubleshooting
-
-### "Invalid credentials"
-- Check `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`
-- Ensure keys are not expired
-
-### "Amount validation failed"
-- Verify amount is in paise (multiply by 100)
-- Check line_items_total matches sum of products
-
-### Checkout doesn't open
-- Verify form is being submitted
-- Check browser console for errors
-- Ensure callback URLs are valid
-
----
-
-**Ready to use!** 🚀
-
-Integrate Magic Checkout in your app and provide seamless payment experience to your customers!
+**Last Updated**: January 2026
+**Version**: 2.0.0
 

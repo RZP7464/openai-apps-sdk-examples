@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - Smartphone Store</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen py-8 px-4">
+        <div class="max-w-2xl mx-auto">
+            <!-- Header -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 rounded-xl bg-cover bg-center" 
+                         style="background-image: url(https://persistent.oaistatic.com/pizzaz/title.png)">
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-semibold">Smartphone Store</h1>
+                        <p class="text-gray-600">Complete Your Payment</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading" class="bg-white rounded-lg shadow-sm p-8 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading order details...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="error" class="bg-white rounded-lg shadow-sm p-8 text-center hidden">
+                <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </div>
+                <h2 class="text-xl font-semibold mb-2">Order Not Found</h2>
+                <p class="text-gray-600 mb-4" id="error-message">Unable to load order details.</p>
+                <a href="/" class="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Back to Store
+                </a>
+            </div>
+
+            <!-- Order Details -->
+            <div id="order-details" class="hidden">
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                    <h2 class="text-lg font-semibold mb-4">Order Summary</h2>
+                    
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <div class="text-xs text-blue-600 font-medium mb-1">ORDER ID</div>
+                        <div class="font-mono text-sm font-semibold text-blue-900 break-all" id="order-id"></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <div class="text-xs text-gray-600 mb-1">Amount</div>
+                            <div class="font-semibold" id="order-amount"></div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <div class="text-xs text-gray-600 mb-1">Currency</div>
+                            <div class="font-semibold" id="order-currency"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4" id="order-address-container">
+                        <div class="text-xs text-gray-600 mb-2 font-medium">Delivery Address</div>
+                        <div class="text-sm" id="order-address"></div>
+                    </div>
+                </div>
+
+                <!-- Payment Form -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h2 class="text-lg font-semibold mb-4">Payment</h2>
+                    
+                    <form id="payment-form" method="POST" action="https://api.razorpay.com/v1/checkout/hosted">
+                        <input type="hidden" name="key_id" value="rzp_live_I51bxdyuOOsDA7" />
+                        <input type="hidden" name="amount" id="payment-amount" />
+                        <input type="hidden" name="currency" id="payment-currency" />
+                        <input type="hidden" name="order_id" id="payment-order-id" />
+                        <input type="hidden" name="name" value="Smartphone Store" />
+                        <input type="hidden" name="description" value="Order Payment" />
+                        <input type="hidden" name="image" value="https://persistent.oaistatic.com/pizzaz/title.png" />
+                        <input type="hidden" name="prefill[name]" id="prefill-name" />
+                        <input type="hidden" name="prefill[contact]" id="prefill-contact" />
+                        <input type="hidden" name="prefill[email]" id="prefill-email" />
+                        <input type="hidden" name="notes[shipping address]" id="notes-address" />
+                        <input type="hidden" name="callback_url" id="callback-url" />
+                        <input type="hidden" name="cancel_url" id="cancel-url" />
+                        
+                        <button type="submit" 
+                                class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                            </svg>
+                            <span id="pay-button-text">Pay Now</span>
+                        </button>
+                    </form>
+
+                    <div class="mt-4 text-center text-sm text-gray-500">
+                        <p>🔒 Secured by Razorpay</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const baseUrl = 'https://openai-apps-sdk-examples-2-7lml.onrender.com';
+        
+        async function loadOrderDetails() {
+            // Get order ID from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const orderId = urlParams.get('orderId');
+            
+            if (!orderId) {
+                showError('No order ID provided in URL');
+                return;
+            }
+
+            try {
+                // Fetch order details from backend
+                const response = await fetch(`${baseUrl}/api/orders/${orderId}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    showError(data.error || 'Failed to load order details');
+                    return;
+                }
+
+                const order = data.order;
+                displayOrderDetails(order);
+            } catch (error) {
+                console.error('Error loading order:', error);
+                showError('Network error. Please try again.');
+            }
+        }
+
+        function displayOrderDetails(order) {
+            // Parse address
+            let address = null;
+            try {
+                address = JSON.parse(order.notes.address);
+            } catch (e) {
+                console.error('Failed to parse address:', e);
+            }
+
+            // Display order details
+            document.getElementById('order-id').textContent = order.id;
+            document.getElementById('order-amount').textContent = `₹${(order.amount / 100).toFixed(2)}`;
+            document.getElementById('order-currency').textContent = order.currency;
+            
+            if (address) {
+                document.getElementById('order-address').innerHTML = `
+                    <div class="font-medium">${address.name}</div>
+                    <div class="text-gray-700">${address.street}</div>
+                    <div class="text-gray-700">${address.city}, ${address.zip}</div>
+                    <div class="text-gray-700">${address.phone}</div>
+                `;
+            } else {
+                document.getElementById('order-address-container').style.display = 'none';
+            }
+
+            // Populate payment form
+            document.getElementById('payment-amount').value = order.amount;
+            document.getElementById('payment-currency').value = order.currency;
+            document.getElementById('payment-order-id').value = order.id;
+            
+            if (address) {
+                document.getElementById('prefill-name').value = address.name;
+                document.getElementById('prefill-contact').value = address.phone;
+                document.getElementById('prefill-email').value = order.user_email || '';
+                document.getElementById('notes-address').value = `${address.street}, ${address.city}, ${address.zip}`;
+            }
+            
+            document.getElementById('callback-url').value = `${baseUrl}/payment-callback`;
+            document.getElementById('cancel-url').value = `${baseUrl}/payment-cancel`;
+            document.getElementById('pay-button-text').textContent = `Pay ₹${(order.amount / 100).toFixed(2)}`;
+
+            // Show order details, hide loading
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('order-details').classList.remove('hidden');
+        }
+
+        function showError(message) {
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error').classList.remove('hidden');
+        }
+
+        // Load order details on page load
+        loadOrderDetails();
+    </script>
+</body>
+</html>
+
