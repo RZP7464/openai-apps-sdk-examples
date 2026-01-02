@@ -257,69 +257,54 @@ export class RazorpayService {
         .container {
             text-align: center;
             background: white;
-            padding: 3rem;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
             max-width: 400px;
         }
-        h1 {
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        h2 {
             color: #333;
-            margin-bottom: 0.5rem;
-            font-size: 1.75rem;
+            margin-bottom: 1rem;
         }
         p {
             color: #666;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
         }
-        #rzp-button1 {
-            background: #528FF0;
+        .fallback-link {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
             color: white;
-            border: none;
-            padding: 16px 48px;
-            font-size: 18px;
-            font-weight: 600;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(82, 143, 240, 0.4);
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: background 0.3s;
         }
-        #rzp-button1:hover {
-            background: #3d7bd9;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(82, 143, 240, 0.6);
-        }
-        #rzp-button1:active {
-            transform: translateY(0);
-        }
-        .info {
-            margin-top: 2rem;
-            padding-top: 2rem;
-            border-top: 1px solid #eee;
-            font-size: 14px;
-            color: #999;
-        }
-        .logo {
-            width: 120px;
-            height: 120px;
-            margin: 0 auto 1.5rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 48px;
+        .fallback-link:hover {
+            background: #5568d3;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="logo">🛒</div>
-        <h1>${businessName}</h1>
-        <p>Click the button below to proceed with payment</p>
-        <button id="rzp-button1">Pay Now</button>
-        <div class="info">
-            <p>Secure payment powered by Razorpay</p>
-        </div>
+        <div class="spinner"></div>
+        <h2>Redirecting to Payment...</h2>
+        <p>Please wait while we redirect you to the secure payment page.</p>
+        <p style="font-size: 14px; color: #999;">If the payment page doesn't open automatically,</p>
+        <a href="#" id="rzp-button1" class="fallback-link">Click Here to Pay</a>
     </div>
 
     <script src="https://checkout.razorpay.com/v1/magic-checkout.js"></script>
@@ -344,6 +329,14 @@ export class RazorpayService {
         
         var rzp1 = new Razorpay(options);
         
+        // Automatically open payment on page load
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                rzp1.open();
+            }, 500);
+        });
+        
+        // Fallback manual trigger
         document.getElementById('rzp-button1').onclick = function(e){
             rzp1.open();
             e.preventDefault();
