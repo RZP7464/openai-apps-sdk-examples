@@ -482,6 +482,14 @@ function App() {
 
   // Order Success Screen
   if (orderDetails) {
+    // Parse address from order notes
+    let parsedAddress = null;
+    try {
+      parsedAddress = JSON.parse(orderDetails.notes.address);
+    } catch (e) {
+      // If parsing fails, use empty values
+    }
+
     return (
       <div className="antialiased w-full text-black px-4 pb-4 border border-black/10 rounded-2xl sm:rounded-3xl overflow-hidden bg-white">
         <div className="max-w-full">
@@ -550,18 +558,48 @@ function App() {
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
               <div className="text-xs text-yellow-800 font-medium mb-1">💡 Next Steps</div>
               <ul className="text-xs text-yellow-900 space-y-1 ml-4 list-disc">
-                <li>Use this Order ID to initialize Razorpay Checkout</li>
+                <li>Click "Pay Now" to complete your payment</li>
+                <li>You'll be redirected to Razorpay's secure checkout</li>
                 <li>Complete the payment process</li>
-                <li>Verify payment signature after completion</li>
               </ul>
             </div>
           </div>
 
           <div className="border-t border-black/5 pt-3 space-y-2">
+            <form method="POST" action="https://api.razorpay.com/v1/checkout/hosted">
+              <input type="hidden" name="key_id" value="rzp_live_I51bxdyuOOsDA7" />
+              <input type="hidden" name="amount" value={orderDetails.amount} />
+              <input type="hidden" name="currency" value={orderDetails.currency} />
+              <input type="hidden" name="order_id" value={orderDetails.id} />
+              <input type="hidden" name="name" value="Smartphone Store" />
+              <input type="hidden" name="description" value="Order Payment" />
+              <input type="hidden" name="image" value="https://persistent.oaistatic.com/pizzaz/title.png" />
+              {parsedAddress && (
+                <>
+                  <input type="hidden" name="prefill[name]" value={parsedAddress.name} />
+                  <input type="hidden" name="prefill[contact]" value={parsedAddress.phone} />
+                  <input type="hidden" name="prefill[email]" value={userEmail} />
+                  <input type="hidden" name="notes[shipping address]" value={`${parsedAddress.street}, ${parsedAddress.city}, ${parsedAddress.zip}`} />
+                </>
+              )}
+              <input type="hidden" name="callback_url" value={`${baseUrl}/payment-callback`} />
+              <input type="hidden" name="cancel_url" value={`${baseUrl}/payment-cancel`} />
+              
+              <Button 
+                color="primary" 
+                variant="solid" 
+                size="md" 
+                block
+                type="submit"
+              >
+                💳 Pay Now - ₹{(orderDetails.amount / 100).toFixed(2)}
+              </Button>
+            </form>
+            
             <Button 
-              color="primary" 
-              variant="solid" 
-              size="md" 
+              color="secondary" 
+              variant="outline" 
+              size="sm" 
               block
               onClick={() => {
                 setOrderDetails(null);
