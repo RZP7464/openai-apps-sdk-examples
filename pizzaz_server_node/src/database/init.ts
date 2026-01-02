@@ -81,6 +81,20 @@ export async function initDatabase() {
       )
     `);
 
+    // Create env_variables table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS env_variables (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        key VARCHAR(255) UNIQUE NOT NULL,
+        value TEXT,
+        description TEXT,
+        is_secret BOOLEAN DEFAULT false,
+        category VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Create indexes for faster queries
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_cart_user_id ON cart_items(user_id);
@@ -88,6 +102,25 @@ export async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
       CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
       CREATE INDEX IF NOT EXISTS idx_orders_razorpay_id ON orders(razorpay_order_id);
+      CREATE INDEX IF NOT EXISTS idx_env_key ON env_variables(key);
+      CREATE INDEX IF NOT EXISTS idx_env_category ON env_variables(category);
+    `);
+
+    // Insert default env variables if not exists
+    await client.query(`
+      INSERT INTO env_variables (key, value, description, is_secret, category)
+      VALUES 
+        ('PORT', '8000', 'Server port number', false, 'server'),
+        ('HOST', '0.0.0.0', 'Server host', false, 'server'),
+        ('JWT_SECRET', 'your-super-secret-jwt-key-change-in-production', 'JWT secret key for token signing', true, 'auth'),
+        ('JWT_EXPIRY', '7d', 'JWT token expiry time', false, 'auth'),
+        ('RAZORPAY_KEY_ID', 'rzp_live_I51bxdyuOOsDA7', 'Razorpay API Key ID', false, 'payment'),
+        ('RAZORPAY_KEY_SECRET', '', 'Razorpay API Key Secret', true, 'payment'),
+        ('DB_CONNECT_URL', 'postgresql://n8n_db_m3i6_user:rQ5Npj6UW6MswIiceNFYN4gFJLxr8rnL@dpg-d4o02mvgi27c73drclb0-a.oregon-postgres.render.com/n8n_db_m3i6', 'Database connection string', true, 'database'),
+        ('CORS_ALLOW_ORIGIN', '*', 'CORS allowed origins', false, 'server'),
+        ('CORS_ALLOW_METHODS', 'GET, POST, OPTIONS', 'CORS allowed HTTP methods', false, 'server'),
+        ('CORS_ALLOW_HEADERS', 'content-type, authorization', 'CORS allowed headers', false, 'server')
+      ON CONFLICT (key) DO NOTHING
     `);
 
     console.log("Database tables initialized successfully");

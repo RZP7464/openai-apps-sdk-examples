@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Environment Variables</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen py-8 px-4">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header with Navigation -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h1 class="text-2xl font-semibold">Environment Variables</h1>
+                        <p class="text-gray-600">Manage application configuration</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="refreshEnvVariables()" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            Refresh
+                        </button>
+                        <button onclick="openCreateModal()" 
+                                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            Add New
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Navigation Tabs -->
+                <div class="flex gap-2 border-b">
+                    <a href="admin-users.html" class="px-4 py-2 border-b-2 border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300">
+                        Users
+                    </a>
+                    <a href="admin-orders.html" class="px-4 py-2 border-b-2 border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300">
+                        Orders
+                    </a>
+                    <a href="admin-env.html" class="px-4 py-2 border-b-2 border-blue-600 text-blue-600 font-medium">
+                        Environment
+                    </a>
+                </div>
+            </div>
+
+            <!-- Category Filter -->
+            <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+                <div class="flex items-center gap-3">
+                    <label class="text-sm font-medium text-gray-700">Filter by Category:</label>
+                    <select id="category-filter" onchange="filterByCategory()" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All Categories</option>
+                    </select>
+                    <span id="env-count" class="text-sm text-gray-600 ml-auto"></span>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading" class="bg-white rounded-lg shadow-sm p-8 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading environment variables...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="error" class="bg-white rounded-lg shadow-sm p-8 text-center hidden">
+                <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </div>
+                <h2 class="text-xl font-semibold mb-2">Error Loading Environment Variables</h2>
+                <p class="text-gray-600 mb-4" id="error-message"></p>
+                <button onclick="refreshEnvVariables()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Try Again
+                </button>
+            </div>
+
+            <!-- Environment Variables Container -->
+            <div id="env-container" class="hidden space-y-4"></div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="bg-white rounded-lg shadow-sm p-8 text-center hidden">
+                <div class="text-gray-400 mb-2">
+                    <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </div>
+                <p class="text-gray-600">No environment variables found</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit/Create Modal -->
+    <div id="edit-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 id="modal-title" class="text-lg font-medium text-gray-900"></h3>
+                    <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form id="env-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Key *</label>
+                        <input type="text" id="env-key" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Value *</label>
+                        <textarea id="env-value" required rows="3"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <input type="text" id="env-description"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                        <input type="text" id="env-category"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="e.g., server, auth, payment">
+                    </div>
+
+                    <div class="flex items-center">
+                        <input type="checkbox" id="env-is-secret" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                        <label for="env-is-secret" class="ml-2 text-sm text-gray-700">Mark as secret (value will be masked)</label>
+                    </div>
+
+                    <div id="modal-error" class="hidden bg-red-50 border border-red-200 rounded p-3">
+                        <p class="text-sm text-red-800" id="modal-error-message"></p>
+                    </div>
+
+                    <div class="flex gap-3 pt-4">
+                        <button type="button" onclick="closeEditModal()" 
+                                class="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
+                            Cancel
+                        </button>
+                        <button type="submit" id="submit-btn"
+                                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Delete Environment Variable</h3>
+                    <button onclick="closeDeleteModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <p class="text-sm text-gray-600 mb-4">Are you sure you want to delete this environment variable?</p>
+                <p class="text-sm font-semibold text-gray-900 mb-4" id="delete-env-key"></p>
+                <p class="text-sm text-red-600 bg-red-50 p-3 rounded border border-red-200">
+                    ⚠️ This action cannot be undone.
+                </p>
+
+                <div class="flex gap-3 mt-6">
+                    <button onclick="closeDeleteModal()" 
+                            class="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
+                        Cancel
+                    </button>
+                    <button onclick="confirmDelete()" 
+                            class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Try localhost first, fallback to production URL
+        const baseUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? `http://localhost:${window.location.port || 8000}`
+            : 'https://openai-apps-sdk-examples-2-7lml.onrender.com';
+        
+        let allEnvVariables = [];
+        let currentEnvVariable = null;
+        let deleteEnvId = null;
+
+        async function loadEnvVariables() {
+            try {
+                document.getElementById('loading').classList.remove('hidden');
+                document.getElementById('error').classList.add('hidden');
+                document.getElementById('env-container').classList.add('hidden');
+                document.getElementById('empty-state').classList.add('hidden');
+
+                const response = await fetch(`${baseUrl}/api/admin/env`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    showError(data.error || 'Failed to load environment variables');
+                    return;
+                }
+
+                allEnvVariables = data.envVariables;
+                await loadCategories();
+                displayEnvVariables(allEnvVariables);
+            } catch (error) {
+                console.error('Error loading environment variables:', error);
+                showError('Network error. Please try again.');
+            }
+        }
+
+        async function loadCategories() {
+            try {
+                const response = await fetch(`${baseUrl}/api/admin/env/categories`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const select = document.getElementById('category-filter');
+                    const currentValue = select.value;
+                    
+                    // Keep "All Categories" option
+                    select.innerHTML = '<option value="">All Categories</option>';
+                    
+                    data.categories.forEach(category => {
+                        const option = document.createElement('option');
+                        option.value = category;
+                        option.textContent = category.charAt(0).toUpperCase() + category.slice(1);
+                        select.appendChild(option);
+                    });
+
+                    select.value = currentValue;
+                }
+            } catch (error) {
+                console.error('Error loading categories:', error);
+            }
+        }
+
+        function displayEnvVariables(envVariables) {
+            const container = document.getElementById('env-container');
+            const emptyState = document.getElementById('empty-state');
+            const envCount = document.getElementById('env-count');
+
+            document.getElementById('loading').classList.add('hidden');
+
+            if (envVariables.length === 0) {
+                container.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                envCount.textContent = '';
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            container.classList.remove('hidden');
+            envCount.textContent = `${envVariables.length} variable${envVariables.length !== 1 ? 's' : ''}`;
+
+            // Group by category
+            const grouped = {};
+            envVariables.forEach(env => {
+                const category = env.category || 'general';
+                if (!grouped[category]) {
+                    grouped[category] = [];
+                }
+                grouped[category].push(env);
+            });
+
+            container.innerHTML = Object.entries(grouped).map(([category, vars]) => `
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <div class="bg-gray-50 px-6 py-3 border-b border-gray-200">
+                        <h3 class="text-sm font-semibold text-gray-700 uppercase">${category}</h3>
+                    </div>
+                    <div class="divide-y divide-gray-200">
+                        ${vars.map(env => `
+                            <div class="p-6 hover:bg-gray-50 transition-colors">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <code class="text-sm font-mono font-semibold text-blue-600">${env.key}</code>
+                                            ${env.isSecret ? '<span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Secret</span>' : ''}
+                                        </div>
+                                        <div class="text-sm text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded border border-gray-200 mb-2">
+                                            ${env.value || '<span class="text-gray-400">No value</span>'}
+                                        </div>
+                                        ${env.description ? `<p class="text-sm text-gray-600">${env.description}</p>` : ''}
+                                        <p class="text-xs text-gray-400 mt-2">Updated: ${new Date(env.updatedAt).toLocaleString()}</p>
+                                    </div>
+                                    <div class="flex gap-2 ml-4">
+                                        <button onclick='openEditModal(${JSON.stringify(env)})' 
+                                                class="px-3 py-1 text-sm bg-blue-50 text-blue-600 rounded hover:bg-blue-100 border border-blue-200">
+                                            Edit
+                                        </button>
+                                        <button onclick='openDeleteModal(${JSON.stringify({id: env.id, key: env.key})})' 
+                                                class="px-3 py-1 text-sm bg-red-50 text-red-600 rounded hover:bg-red-100 border border-red-200">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterByCategory() {
+            const category = document.getElementById('category-filter').value;
+            if (category) {
+                const filtered = allEnvVariables.filter(env => env.category === category);
+                displayEnvVariables(filtered);
+            } else {
+                displayEnvVariables(allEnvVariables);
+            }
+        }
+
+        function openCreateModal() {
+            currentEnvVariable = null;
+            document.getElementById('modal-title').textContent = 'Add New Environment Variable';
+            document.getElementById('env-key').disabled = false;
+            document.getElementById('env-key').value = '';
+            document.getElementById('env-value').value = '';
+            document.getElementById('env-description').value = '';
+            document.getElementById('env-category').value = '';
+            document.getElementById('env-is-secret').checked = false;
+            document.getElementById('modal-error').classList.add('hidden');
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        function openEditModal(env) {
+            currentEnvVariable = env;
+            document.getElementById('modal-title').textContent = 'Edit Environment Variable';
+            document.getElementById('env-key').disabled = true;
+            document.getElementById('env-key').value = env.key;
+            document.getElementById('env-value').value = env.isSecret ? '' : env.value;
+            document.getElementById('env-description').value = env.description || '';
+            document.getElementById('env-category').value = env.category || '';
+            document.getElementById('env-is-secret').checked = env.isSecret;
+            document.getElementById('modal-error').classList.add('hidden');
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+            currentEnvVariable = null;
+        }
+
+        function openDeleteModal(env) {
+            deleteEnvId = env.id;
+            document.getElementById('delete-env-key').textContent = env.key;
+            document.getElementById('delete-modal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('delete-modal').classList.add('hidden');
+            deleteEnvId = null;
+        }
+
+        async function confirmDelete() {
+            if (!deleteEnvId) return;
+
+            try {
+                const response = await fetch(`${baseUrl}/api/admin/env/${deleteEnvId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    closeDeleteModal();
+                    loadEnvVariables();
+                } else {
+                    alert(data.error || 'Failed to delete environment variable');
+                }
+            } catch (error) {
+                console.error('Error deleting environment variable:', error);
+                alert('Network error. Please try again.');
+            }
+        }
+
+        document.getElementById('env-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const key = document.getElementById('env-key').value.trim();
+            const value = document.getElementById('env-value').value;
+            const description = document.getElementById('env-description').value.trim();
+            const category = document.getElementById('env-category').value.trim() || 'general';
+            const isSecret = document.getElementById('env-is-secret').checked;
+
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Saving...';
+
+            try {
+                let response;
+                if (currentEnvVariable) {
+                    // Update
+                    response = await fetch(`${baseUrl}/api/admin/env/${currentEnvVariable.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ value, description, category, isSecret })
+                    });
+                } else {
+                    // Create
+                    response = await fetch(`${baseUrl}/api/admin/env`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ key, value, description, category, isSecret })
+                    });
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    closeEditModal();
+                    loadEnvVariables();
+                } else {
+                    document.getElementById('modal-error-message').textContent = data.error || 'Failed to save';
+                    document.getElementById('modal-error').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error saving environment variable:', error);
+                document.getElementById('modal-error-message').textContent = 'Network error. Please try again.';
+                document.getElementById('modal-error').classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Save';
+            }
+        });
+
+        function showError(message) {
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error').classList.remove('hidden');
+        }
+
+        function refreshEnvVariables() {
+            loadEnvVariables();
+        }
+
+        // Load on page load
+        loadEnvVariables();
+    </script>
+</body>
+</html>
+

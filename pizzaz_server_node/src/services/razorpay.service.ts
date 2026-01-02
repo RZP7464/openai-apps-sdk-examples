@@ -1,15 +1,21 @@
 import Razorpay from "razorpay";
 import crypto from "node:crypto";
-import config from "../config/index.js";
+import { getConfigValue } from "../config/dynamic.js";
 
 export class RazorpayService {
-  private razorpay: Razorpay;
+  private razorpay: Razorpay | null = null;
 
-  constructor() {
-    this.razorpay = new Razorpay({
-      key_id: config.razorpay.keyId,
-      key_secret: config.razorpay.keySecret,
-    });
+  async initRazorpay() {
+    if (!this.razorpay) {
+      const keyId = await getConfigValue('RAZORPAY_KEY_ID', 'rzp_live_I51bxdyuOOsDA7');
+      const keySecret = await getConfigValue('RAZORPAY_KEY_SECRET', '');
+      
+      this.razorpay = new Razorpay({
+        key_id: keyId,
+        key_secret: keySecret,
+      });
+    }
+    return this.razorpay;
   }
 
   /**
@@ -23,6 +29,7 @@ export class RazorpayService {
     sessionId: string,
     address: any
   ) {
+    const razorpay = await this.initRazorpay();
     const options = {
       amount: Math.round(amount * 100), // amount in paise
       currency: currency || "INR",
@@ -35,20 +42,21 @@ export class RazorpayService {
       },
     };
 
-    return this.razorpay.orders.create(options);
+    return razorpay.orders.create(options);
   }
 
   /**
    * Verify payment signature
    */
-  verifyPaymentSignature(
+  async verifyPaymentSignature(
     razorpayOrderId: string,
     razorpayPaymentId: string,
     razorpaySignature: string
-  ): boolean {
+  ): Promise<boolean> {
+    const keySecret = await getConfigValue('RAZORPAY_KEY_SECRET', '');
     const sign = razorpayOrderId + "|" + razorpayPaymentId;
     const expectedSign = crypto
-      .createHmac("sha256", config.razorpay.keySecret)
+      .createHmac("sha256", keySecret)
       .update(sign)
       .digest("hex");
 

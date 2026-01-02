@@ -49,6 +49,35 @@ export class AuthRoutes {
       sendErrorResponse(res, statusCode, error.message);
     }
   }
+
+  /**
+   * GET /api/admin/users
+   */
+  static async getAllUsers(req: IncomingMessage, res: ServerResponse) {
+    try {
+      const users = await AuthService.getAllUsers();
+      sendSuccessResponse(res, { success: true, users });
+    } catch (error: any) {
+      console.error("Get all users error:", error);
+      sendErrorResponse(res, 500, error.message);
+    }
+  }
+
+  /**
+   * POST /api/admin/users/reset-password
+   */
+  static async resetUserPassword(req: IncomingMessage, res: ServerResponse) {
+    try {
+      const { userId } = await parseJsonBody(req);
+      const result = await AuthService.resetUserPassword(userId);
+      sendSuccessResponse(res, result);
+    } catch (error: any) {
+      console.error("Reset password error:", error);
+      const statusCode = error.message.includes("not found") ? 404 : 
+                         error.message.includes("required") ? 400 : 500;
+      sendErrorResponse(res, statusCode, error.message);
+    }
+  }
 }
 
 export default AuthRoutes;

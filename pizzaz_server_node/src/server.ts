@@ -14,6 +14,7 @@ import { URL } from "node:url";
 
 // Configuration
 import config from "./config/index.js";
+import { getConfigValue, loadConfig } from "./config/dynamic.js";
 
 // Database
 import initDatabase from "./database/init.js";
@@ -30,9 +31,17 @@ import CartRoutes from "./routes/cart.routes.js";
 import RazorpayRoutes from "./routes/razorpay.routes.js";
 import OrderRoutes from "./routes/order.routes.js";
 import StaticRoutes from "./routes/static.routes.js";
+import EnvRoutes from "./routes/env.routes.js";
 
 // Initialize database on startup
 initDatabase().catch(console.error);
+
+// Load configuration from database
+loadConfig().then(() => {
+  console.log('Configuration loaded from database');
+}).catch(err => {
+  console.error('Failed to load config from database, using defaults:', err.message);
+});
 
 /**
  * Main HTTP server request handler
@@ -101,6 +110,87 @@ const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
   if (req.method === "POST" && url.pathname === "/api/auth/verify") {
     await AuthRoutes.verify(req, res);
     return;
+  }
+
+  if (req.method === "OPTIONS" && url.pathname === "/api/admin/users") {
+    handleCorsOptions(res);
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/admin/users") {
+    await AuthRoutes.getAllUsers(req, res);
+    return;
+  }
+
+  if (req.method === "OPTIONS" && url.pathname === "/api/admin/users/reset-password") {
+    handleCorsOptions(res);
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/admin/users/reset-password") {
+    await AuthRoutes.resetUserPassword(req, res);
+    return;
+  }
+
+  // ==========================================
+  // Environment Variables Endpoints
+  // ==========================================
+
+  if (req.method === "OPTIONS" && url.pathname.startsWith("/api/admin/env")) {
+    handleCorsOptions(res);
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/admin/env") {
+    await EnvRoutes.getAllEnvVariables(req, res);
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/admin/env/categories") {
+    await EnvRoutes.getCategories(req, res);
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith("/api/admin/env/category/")) {
+    const category = url.pathname.split("/").pop();
+    if (category) {
+      await EnvRoutes.getEnvVariablesByCategory(req, res, category);
+      return;
+    }
+  }
+
+  if (req.method === "GET" && url.pathname.match(/^\/api\/admin\/env\/[^\/]+$/)) {
+    const key = url.pathname.split("/").pop();
+    if (key && key !== "env") {
+      await EnvRoutes.getEnvVariable(req, res, key);
+      return;
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/admin/env") {
+    await EnvRoutes.createEnvVariable(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/admin/env/bulk-update") {
+    await EnvRoutes.bulkUpdateEnvVariables(req, res);
+    return;
+  }
+
+  if (req.method === "PUT" && url.pathname.startsWith("/api/admin/env/")) {
+    const id = url.pathname.split("/").pop();
+    if (id) {
+      await EnvRoutes.updateEnvVariable(req, res, id);
+      return;
+    }
+  }
+
+  if (req.method === "DELETE" && url.pathname.startsWith("/api/admin/env/")) {
+    const id = url.pathname.split("/").pop();
+    if (id) {
+      await EnvRoutes.deleteEnvVariable(req, res, id);
+      return;
+    }
   }
 
   // ==========================================
@@ -204,6 +294,16 @@ const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/admin/users") {
+    StaticRoutes.serveAdminUsersPage(req, res);
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/admin/env") {
+    StaticRoutes.serveAdminEnvPage(req, res);
+    return;
+  }
+
   // ==========================================
   // Static Assets
   // ==========================================
@@ -232,35 +332,58 @@ httpServer.on("clientError", (err: Error, socket) => {
   socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
 });
 
-httpServer.listen(config.port, () => {
-  console.log(`\n🚀 Pizzaz MCP Server`);
-  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-  console.log(`📡 Server listening on http://localhost:${config.port}`);
-  console.log(`\n🔌 MCP Endpoints:`);
-  console.log(`   SSE Stream:    GET  http://localhost:${config.port}${config.mcp.ssePath}`);
-  console.log(`   Message Post:  POST http://localhost:${config.port}${config.mcp.postPath}?sessionId=...`);
-  console.log(`\n🔐 Auth Endpoints:`);
-  console.log(`   Signup:        POST http://localhost:${config.port}/api/auth/signup`);
-  console.log(`   Login:         POST http://localhost:${config.port}/api/auth/login`);
-  console.log(`   Verify:        POST http://localhost:${config.port}/api/auth/verify`);
-  console.log(`\n🛒 Cart Endpoints:`);
-  console.log(`   Get Cart:      GET  http://localhost:${config.port}/api/cart?userId=...`);
-  console.log(`   Add to Cart:   POST http://localhost:${config.port}/api/cart/add`);
-  console.log(`   Remove:        POST http://localhost:${config.port}/api/cart/remove`);
-  console.log(`   Clear:         POST http://localhost:${config.port}/api/cart/clear`);
-  console.log(`\n💳 Payment Endpoints:`);
-  console.log(`   Create Order:  POST http://localhost:${config.port}/api/razorpay/create-order`);
-  console.log(`   Verify:        POST http://localhost:${config.port}/api/razorpay/verify-payment`);
-  console.log(`   Parse Store:   GET  http://localhost:${config.port}/api/razorpay/parse-store?url=...`);
-  console.log(`   Magic Checkout (JSON): POST http://localhost:${config.port}/api/razorpay/magic-checkout`);
-  console.log(`   Magic Checkout (HTML): GET  http://localhost:${config.port}/api/razorpay/magic-checkout?orderId=...`);
-  console.log(`\n📦 Order Endpoints:`);
-  console.log(`   Checkout:      POST http://localhost:${config.port}/api/checkout/proceed`);
-  console.log(`   Get Order:     GET  http://localhost:${config.port}/api/orders/:orderId`);
-  console.log(`   Admin Orders:  GET  http://localhost:${config.port}/api/admin/orders`);
-  console.log(`\n📄 Pages:`);
-  console.log(`   Checkout:      http://localhost:${config.port}/checkout`);
-  console.log(`   Admin:         http://localhost:${config.port}/admin`);
-  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
-});
+// Start server with dynamic port from database
+(async () => {
+  try {
+    const port = parseInt(await getConfigValue('PORT', '8000'));
+    
+    httpServer.listen(port, () => {
+      console.log(`\n🚀 Pizzaz MCP Server`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`📡 Server listening on http://localhost:${port}`);
+      console.log(`\n🔌 MCP Endpoints:`);
+      console.log(`   SSE Stream:    GET  http://localhost:${port}${config.mcp.ssePath}`);
+      console.log(`   Message Post:  POST http://localhost:${port}${config.mcp.postPath}?sessionId=...`);
+      console.log(`\n🔐 Auth Endpoints:`);
+      console.log(`   Signup:        POST http://localhost:${port}/api/auth/signup`);
+      console.log(`   Login:         POST http://localhost:${port}/api/auth/login`);
+      console.log(`   Verify:        POST http://localhost:${port}/api/auth/verify`);
+      console.log(`\n👥 Admin Endpoints:`);
+      console.log(`   Get Users:     GET  http://localhost:${port}/api/admin/users`);
+      console.log(`   Reset Password: POST http://localhost:${port}/api/admin/users/reset-password`);
+      console.log(`   Get Orders:    GET  http://localhost:${port}/api/admin/orders`);
+      console.log(`\n⚙️  Environment Variables:`);
+      console.log(`   Get All Env:   GET  http://localhost:${port}/api/admin/env`);
+      console.log(`   Get Categories: GET  http://localhost:${port}/api/admin/env/categories`);
+      console.log(`   Create Env:    POST http://localhost:${port}/api/admin/env`);
+      console.log(`   Update Env:    PUT  http://localhost:${port}/api/admin/env/:id`);
+      console.log(`   Delete Env:    DELETE http://localhost:${port}/api/admin/env/:id`);
+      console.log(`   Bulk Update:   POST http://localhost:${port}/api/admin/env/bulk-update`);
+      console.log(`\n🛒 Cart Endpoints:`);
+      console.log(`   Get Cart:      GET  http://localhost:${port}/api/cart?userId=...`);
+      console.log(`   Add to Cart:   POST http://localhost:${port}/api/cart/add`);
+      console.log(`   Remove:        POST http://localhost:${port}/api/cart/remove`);
+      console.log(`   Clear:         POST http://localhost:${port}/api/cart/clear`);
+      console.log(`\n💳 Payment Endpoints:`);
+      console.log(`   Create Order:  POST http://localhost:${port}/api/razorpay/create-order`);
+      console.log(`   Verify:        POST http://localhost:${port}/api/razorpay/verify-payment`);
+      console.log(`   Parse Store:   GET  http://localhost:${port}/api/razorpay/parse-store?url=...`);
+      console.log(`   Magic Checkout (JSON): POST http://localhost:${port}/api/razorpay/magic-checkout`);
+      console.log(`   Magic Checkout (HTML): GET  http://localhost:${port}/api/razorpay/magic-checkout?orderId=...`);
+      console.log(`\n📦 Order Endpoints:`);
+      console.log(`   Checkout:      POST http://localhost:${port}/api/checkout/proceed`);
+      console.log(`   Get Order:     GET  http://localhost:${port}/api/orders/:orderId`);
+      console.log(`   Admin Orders:  GET  http://localhost:${port}/api/admin/orders`);
+      console.log(`\n📄 Pages:`);
+      console.log(`   Checkout:      http://localhost:${port}/checkout`);
+      console.log(`   Admin Orders:  http://localhost:${port}/admin`);
+      console.log(`   Admin Users:   http://localhost:${port}/admin/users`);
+      console.log(`   Admin Env:     http://localhost:${port}/admin/env`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+    });
+  } catch (error) {
+    console.error('Error starting server:', error);
+    process.exit(1);
+  }
+})();
 

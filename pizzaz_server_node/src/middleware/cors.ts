@@ -1,19 +1,27 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import config from "../config/index.js";
+import { getConfigValue } from "../config/dynamic.js";
 
-export const handleCorsOptions = (res: ServerResponse, additionalHeaders: Record<string, string> = {}) => {
+export const handleCorsOptions = async (res: ServerResponse, additionalHeaders: Record<string, string> = {}) => {
+  const allowOrigin = await getConfigValue('CORS_ALLOW_ORIGIN', '*');
+  const allowMethods = await getConfigValue('CORS_ALLOW_METHODS', 'GET, POST, OPTIONS');
+  const allowHeaders = await getConfigValue('CORS_ALLOW_HEADERS', 'content-type, authorization');
+  
   res.writeHead(204, {
-    "Access-Control-Allow-Origin": config.cors.allowOrigin,
-    "Access-Control-Allow-Methods": config.cors.allowMethods,
-    "Access-Control-Allow-Headers": config.cors.allowHeaders,
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": allowMethods,
+    "Access-Control-Allow-Headers": allowHeaders,
     ...additionalHeaders,
   });
   res.end();
 };
 
-export const setCorsHeaders = (res: ServerResponse) => {
-  res.setHeader("Access-Control-Allow-Origin", config.cors.allowOrigin);
-  res.setHeader("Access-Control-Allow-Methods", config.cors.allowMethods);
-  res.setHeader("Access-Control-Allow-Headers", config.cors.allowHeaders);
+export const setCorsHeaders = async (res: ServerResponse) => {
+  const allowOrigin = await getConfigValue('CORS_ALLOW_ORIGIN', '*');
+  const allowMethods = await getConfigValue('CORS_ALLOW_METHODS', 'GET, POST, OPTIONS');
+  const allowHeaders = await getConfigValue('CORS_ALLOW_HEADERS', 'content-type, authorization');
+  
+  res.setHeader("Access-Control-Allow-Origin", allowOrigin);
+  res.setHeader("Access-Control-Allow-Methods", allowMethods);
+  res.setHeader("Access-Control-Allow-Headers", allowHeaders);
 };
 

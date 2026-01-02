@@ -45,6 +45,46 @@ export class StaticRoutes {
   }
 
   /**
+   * Serve admin users page
+   */
+  static serveAdminUsersPage(req: IncomingMessage, res: ServerResponse) {
+    try {
+      const adminUsersPagePath = path.resolve(config.rootDir, "admin-users.html");
+      const content = fs.readFileSync(adminUsersPagePath, "utf8");
+      
+      res.writeHead(200, {
+        "Content-Type": "text/html",
+        "Access-Control-Allow-Origin": "*",
+      });
+      res.end(content);
+    } catch (error) {
+      console.error("Error serving admin users page:", error);
+      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end("Error loading admin users page");
+    }
+  }
+
+  /**
+   * Serve admin env page
+   */
+  static serveAdminEnvPage(req: IncomingMessage, res: ServerResponse) {
+    try {
+      const adminEnvPagePath = path.resolve(config.rootDir, "admin-env.html");
+      const content = fs.readFileSync(adminEnvPagePath, "utf8");
+      
+      res.writeHead(200, {
+        "Content-Type": "text/html",
+        "Access-Control-Allow-Origin": "*",
+      });
+      res.end(content);
+    } catch (error) {
+      console.error("Error serving admin env page:", error);
+      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end("Error loading admin env page");
+    }
+  }
+
+  /**
    * Serve static assets
    */
   static serveAsset(req: IncomingMessage, res: ServerResponse, url: URL) {
