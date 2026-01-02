@@ -27,7 +27,6 @@ function App() {
     zip: ""
   });
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
-  const [orderDetails, setOrderDetails] = useState(null);
   const [checkoutError, setCheckoutError] = useState("");
   const limit = 100;
 
@@ -324,7 +323,6 @@ function App() {
 
       if (data.success) {
         console.log('Order created successfully:', data);
-        setOrderDetails(data.order);
         
         // Clear cart after successful order creation
         await fetch(`${baseUrl}/api/cart/clear`, {
@@ -333,6 +331,14 @@ function App() {
           body: JSON.stringify({ userId: userId })
         });
         setCart([]);
+        
+        // Reset address form
+        setShowAddressForm(false);
+        setAddress({ name: "", phone: "", street: "", city: "", zip: "" });
+        
+        // Open magic checkout URL directly
+        const magicCheckoutUrl = `${baseUrl}/api/razorpay/magic-checkout?orderId=${data.order.id}`;
+        window.open(magicCheckoutUrl, '_blank');
         
       } else {
         console.error('Order creation failed:', data.error);
@@ -480,135 +486,6 @@ function App() {
     );
   }
 
-  // Order Success Screen
-  if (orderDetails) {
-    // Parse address from order notes
-    let parsedAddress = null;
-    try {
-      parsedAddress = JSON.parse(orderDetails.notes.address);
-    } catch (e) {
-      // If parsing fails, use empty values
-    }
-
-    return (
-      <div className="antialiased w-full text-black px-4 pb-4 border border-black/10 rounded-2xl sm:rounded-3xl overflow-hidden bg-white">
-        <div className="max-w-full">
-          <div className="flex flex-col items-center gap-2 border-b border-black/5 py-6">
-            <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-              <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <div className="text-xl sm:text-2xl font-semibold">Order Created Successfully!</div>
-            <div className="text-sm text-black/60 text-center">
-              Your Razorpay order has been created with line items
-            </div>
-          </div>
-          
-          <div className="py-4 space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="text-xs text-blue-600 font-medium mb-1">ORDER ID</div>
-              <div className="font-mono text-sm sm:text-base font-semibold text-blue-900 break-all">
-                {orderDetails.id}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="text-xs text-black/60 mb-1">Amount</div>
-                <div className="font-semibold text-sm">₹{(orderDetails.amount / 100).toFixed(2)}</div>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="text-xs text-black/60 mb-1">Currency</div>
-                <div className="font-semibold text-sm">{orderDetails.currency}</div>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="text-xs text-black/60 mb-1">Status</div>
-                <div className="font-semibold text-sm capitalize">{orderDetails.status}</div>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="text-xs text-black/60 mb-1">Receipt</div>
-                <div className="font-semibold text-sm text-xs truncate">{orderDetails.receipt}</div>
-              </div>
-            </div>
-
-            {orderDetails.notes && (
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="text-xs text-black/60 mb-2 font-medium">Delivery Address</div>
-                <div className="text-sm space-y-1">
-                  {(() => {
-                    try {
-                      const addr = JSON.parse(orderDetails.notes.address);
-                      return (
-                        <>
-                          <div className="font-medium">{addr.name}</div>
-                          <div className="text-black/70">{addr.street}</div>
-                          <div className="text-black/70">{addr.city}, {addr.zip}</div>
-                          <div className="text-black/70">{addr.phone}</div>
-                        </>
-                      );
-                    } catch (e) {
-                      return <div className="text-black/70">Address information available</div>;
-                    }
-                  })()}
-                </div>
-              </div>
-            )}
-
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <div className="text-xs text-yellow-800 font-medium mb-1">💡 Next Steps</div>
-              <ul className="text-xs text-yellow-900 space-y-1 ml-4 list-disc">
-                <li>Click "Pay Now" to complete your payment</li>
-                <li>You'll be redirected to Razorpay's secure checkout</li>
-                <li>Complete the payment process</li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="border-t border-black/5 pt-3 space-y-2">
-            <Button 
-              color="primary" 
-              variant="solid" 
-              size="md" 
-              block
-              onClick={() => {
-                // Redirect to checkout page with order ID
-                const checkoutUrl = `${baseUrl}/checkout?orderId=${orderDetails.id}`;
-                window.open(checkoutUrl, '_blank');
-              }}
-            >
-              💳 Pay Now - ₹{(orderDetails.amount / 100).toFixed(2)}
-            </Button>
-            
-            <Button 
-              color="secondary" 
-              variant="outline" 
-              size="sm" 
-              block
-              onClick={() => {
-                setOrderDetails(null);
-                setShowAddressForm(false);
-                setAddress({ name: "", phone: "", street: "", city: "", zip: "" });
-              }}
-            >
-              Place Another Order
-            </Button>
-            <Button 
-              color="secondary" 
-              variant="outline" 
-              size="sm" 
-              block
-              onClick={() => {
-                navigator.clipboard.writeText(orderDetails.id);
-              }}
-            >
-              Copy Order ID
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (showAddressForm) {
     return (
