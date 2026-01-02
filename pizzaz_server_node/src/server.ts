@@ -1201,6 +1201,114 @@ const httpServer = createServer(
       return;
     }
 
+    // Razorpay parse store endpoint (GET with query params)
+    if (req.method === "GET" && url.pathname === "/api/razorpay/parse-store") {
+      try {
+        const razorpayUrl = url.searchParams.get('url');
+
+        if (!razorpayUrl) {
+          res.writeHead(400, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "Razorpay store URL is required. Use ?url=https://pages.razorpay.com/stores/st_XXXXX"
+          }));
+          return;
+        }
+
+        // Validate URL format
+        if (!razorpayUrl.includes("pages.razorpay.com/stores/")) {
+          res.writeHead(400, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "Invalid Razorpay store URL format"
+          }));
+          return;
+        }
+
+        // Fetch the HTML page
+        const response = await fetch(razorpayUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch URL: ${response.statusText}`);
+        }
+
+        const html = await response.text();
+
+        // Extract the window.__REACT_QUERY_STATE__ data
+        const scriptMatch = html.match(/window\.__REACT_QUERY_STATE__\s*=\s*({.*?});/s);
+        
+        if (!scriptMatch || !scriptMatch[1]) {
+          res.writeHead(404, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "No products data found in the page"
+          }));
+          return;
+        }
+
+        // Parse the JSON data
+        const reactQueryState = JSON.parse(scriptMatch[1]);
+        
+        // Extract products from the nested structure
+        const storeQuery = reactQueryState.queries?.find((q: any) => 
+          q.queryKey && q.queryKey[0] && q.queryKey[0].startsWith('store-st_')
+        );
+
+        if (!storeQuery || !storeQuery.state?.data?.store?.products) {
+          res.writeHead(404, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({
+            success: false,
+            error: "Products data not found in the expected format"
+          }));
+          return;
+        }
+
+        const products = storeQuery.state.data.store.products;
+        const storeInfo = {
+          id: storeQuery.state.data.store.id,
+          title: storeQuery.state.data.store.title,
+          description: storeQuery.state.data.store.description,
+          currency: storeQuery.state.data.store.currency,
+          categories: storeQuery.state.data.store.categories,
+          merchant: storeQuery.state.data.merchant
+        };
+
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: true,
+          store: storeInfo,
+          products: products,
+          totalProducts: products.length
+        }));
+
+      } catch (error: any) {
+        console.error("Error parsing Razorpay store:", error);
+        res.writeHead(500, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify({
+          success: false,
+          error: error.message || "Failed to parse Razorpay store"
+        }));
+      }
+      return;
+    }
+
     // Dynamic checkout page
     if (req.method === "GET" && url.pathname === "/checkout") {
       const cartData = url.searchParams.get('cart');
